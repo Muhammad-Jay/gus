@@ -44,15 +44,6 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [ ] **3.11** Implement template validator and renderer
 - [ ] **3.12** Tests for config, instructions, and templates
 
-## Phase 4: Workflow Domain and Policy
-- [ ] **4.1** Define workflow domain models (workflow-plan, commit-group, branch-strategy)
-- [ ] **4.2** Define policy models and rules
-- [ ] **4.3** Implement policy evaluator
-- [ ] **4.4** Define workflow plan schema with Zod
-- [ ] **4.5** Implement workflow validator service
-- [ ] **4.6** Implement workflow planner service (structure only)
-- [ ] **4.7** Define domain errors
-- [ ] **4.8** Unit tests for policy, validation, domain logic
 
 ## Phase 5: AI Planner
 - [ ] **5.1** Define AI planner port
@@ -130,3 +121,12 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [x] **3.10** Implement template loader (TEMPLATE.md)
 - [x] **3.11** Implement template validator and renderer
 - [x] **3.12** Tests for config, instructions, and templates
+## Phase 4: Workflow Domain and Policy ✅ COMPLETE
+- [x] **4.1** Define workflow domain models (workflow-plan, commit-group, branch-strategy)
+- [x] **4.2** Define policy models and rules
+- [x] **4.3** Implement policy evaluator
+- [x] **4.4** Define workflow plan schema with Zod
+- [x] **4.5** Implement workflow validator service
+- [x] **4.6** Implement workflow planner service (structure only)
+- [x] **4.7** Define domain errors (already done in Phase 2)
+- [x] **4.8** Unit tests for policy, validation, domain logic
