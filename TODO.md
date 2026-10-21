@@ -116,3 +116,17 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [x] **2.12** Add commit operations
 - [x] **2.13** Add verification logic
 - [x] **2.14** Unit/integration tests for repository adapter
+
+## Phase 3: Configuration and Instructions ✅ COMPLETE
+- [x] **3.1** Define configuration port
+- [x] **3.2** Define configuration schema with Zod (config.schema.ts)
+- [x] **3.3** Implement config paths resolution
+- [x] **3.4** Implement config loader (global + project precedence)
+- [x] **3.5** Implement config merger
+- [x] **3.6** Define instruction loader port
+- [x] **3.7** Implement markdown instruction loader (GUS.md)
+- [x] **3.8** Implement instruction merger (via combined field)
+- [x] **3.9** Define template models (commit-template)
+- [x] **3.10** Implement template loader (TEMPLATE.md)
+- [x] **3.11** Implement template validator and renderer
+- [x] **3.12** Tests for config, instructions, and templates
