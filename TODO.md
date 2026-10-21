@@ -100,3 +100,19 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - Validate all AI output with Zod
 - Preserve user changes
 - Repository operations only through adapter
+
+## Phase 2: Repository Adapter ✅ COMPLETE
+- [x] **2.1** Define repository port (src/application/ports/repository.port.ts)
+- [x] **2.2** Define domain models (RepositorySnapshot, RepositoryChange, RepositoryCapabilities)
+- [x] **2.3** Define process runner interface and implementation
+- [x] **2.4** Create repository provider registry
+- [x] **2.5** Implement Git CLI adapter (git-repository.adapter.ts)
+- [x] **2.6** Implement git command runner with safe execution (no shell interpolation)
+- [x] **2.7** Implement status parser
+- [x] **2.8** Implement diff parser
+- [x] **2.9** Add repository detection logic
+- [x] **2.10** Add branch operations (create, checkout)
+- [x] **2.11** Add staging operations (stagePaths)
+- [x] **2.12** Add commit operations
+- [x] **2.13** Add verification logic
+- [x] **2.14** Unit/integration tests for repository adapter
