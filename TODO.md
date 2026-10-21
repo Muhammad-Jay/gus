@@ -45,15 +45,6 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [ ] **3.12** Tests for config, instructions, and templates
 
 
-## Phase 5: AI Planner
-- [ ] **5.1** Define AI planner port
-- [ ] **5.2** Create AI provider registry
-- [ ] **5.3** Create model resolver
-- [ ] **5.4** Implement workflow planning prompt
-- [ ] **5.5** Implement AI SDK planner adapter (with Zod validation)
-- [ ] **5.6** Ensure AI cannot execute commands
-- [ ] **5.7** Handle errors, timeouts, invalid responses
-- [ ] **5.8** Tests with mocked/fake planner
 
 ## Phase 6: Workflow Orchestration
 - [ ] **6.1** Implement run-workflow use case
@@ -130,3 +121,12 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [x] **4.6** Implement workflow planner service (structure only)
 - [x] **4.7** Define domain errors (already done in Phase 2)
 - [x] **4.8** Unit tests for policy, validation, domain logic
+## Phase 5: AI Planner ✅ COMPLETE
+- [x] **5.1** Define AI planner port
+- [x] **5.2** Create AI provider registry
+- [x] **5.3** Create model resolver (placeholder)
+- [x] **5.4** Implement workflow planning prompt
+- [x] **5.5** Implement AI SDK planner adapter (with Zod validation)
+- [x] **5.6** Ensure AI cannot execute commands
+- [x] **5.7** Handle errors, timeouts, invalid responses
+- [x] **5.8** Tests with mocked/fake planner
