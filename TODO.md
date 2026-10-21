@@ -46,13 +46,6 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 
 
 
-## Phase 6: Workflow Orchestration
-- [ ] **6.1** Implement run-workflow use case
-- [ ] **6.2** Implement workflow executor service
-- [ ] **6.3** Coordinate inspection → planning → validation → approval → execution → verification
-- [ ] **6.4** Handle partial failures correctly
-- [ ] **6.5** Handle state changes during execution
-- [ ] **6.6** Integration tests with temp repo and fake AI
 
 ## Phase 7: CLI Experience
 - [ ] **7.1** Create UI layer (progress.ts, prompts.ts, plan-view.ts, result-view.ts)
@@ -130,3 +123,10 @@ This TODO tracks the implementation of Gus following the phases outlined in MODE
 - [x] **5.6** Ensure AI cannot execute commands
 - [x] **5.7** Handle errors, timeouts, invalid responses
 - [x] **5.8** Tests with mocked/fake planner
+## Phase 6: Workflow Orchestration ✅ COMPLETE
+- [x] **6.1** Implement run-workflow use case
+- [x] **6.2** Implement workflow executor service
+- [x] **6.3** Coordinate inspection → planning → validation → approval → execution → verification
+- [x] **6.4** Handle partial failures correctly
+- [x] **6.5** Handle state changes during execution
+- [x] **6.6** Integration tests with temp repo and fake AI (covered)
