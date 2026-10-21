@@ -5,8 +5,3 @@ node_modules/
 .env.local
 .DS_Store
 coverage/
-
-# Gus config files (user-specific)
-MODEL.md
-opencode.json
-AGENTS.md
