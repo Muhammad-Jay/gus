@@ -1,6 +1,6 @@
-import type { RepositoryAdapter } from '../ports/repository.port.js';
-import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 import type { OperationPolicyDecision } from '../../domain/policy/policy-evaluator.js';
+import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
+import type { RepositoryAdapter } from '../ports/repository.port.js';
 
 export interface ExecutionResult {
   success: boolean;

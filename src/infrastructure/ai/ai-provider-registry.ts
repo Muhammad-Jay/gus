@@ -1,6 +1,8 @@
+import type { AiPlanner } from '../../application/ports/ai-planner.port.js';
+
 export interface AiProvider {
   name: string;
-  createPlanner(model?: string): any;
+  createPlanner(model?: string): AiPlanner;
 }
 
 export class AiProviderRegistry {

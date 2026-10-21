@@ -1,8 +1,11 @@
-import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { InstructionLoader, InstructionSet } from '../../application/ports/instruction-loader.port.js';
+import type {
+  InstructionLoader,
+  InstructionSet,
+} from '../../application/ports/instruction-loader.port.js';
 
 export class MarkdownInstructionLoader implements InstructionLoader {
   async loadInstructions(repoRoot?: string): Promise<InstructionSet> {

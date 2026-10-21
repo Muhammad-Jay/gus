@@ -1,13 +1,20 @@
+import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
-import type { RepositoryAdapter, RepositoryLocation, CommitResult } from '../../../../application/ports/repository.port.js';
-import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
+import { join } from 'node:path';
+import type {
+  CommitResult,
+  RepositoryAdapter,
+  RepositoryLocation,
+} from '../../../../application/ports/repository.port.js';
+import {
+  NoRepositoryError,
+  UnsafeRepositoryStateError,
+} from '../../../../domain/errors/domain-errors.js';
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
-import { ProcessRunner } from '../../../process/process-runner.js';
+import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
+import type { ProcessRunner } from '../../../process/process-runner.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { parseGitStatus } from './status-parser.js';
-import { NoRepositoryError, UnsafeRepositoryStateError } from '../../../../domain/errors/domain-errors.js';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 
 export class GitRepositoryAdapter implements RepositoryAdapter {
   private git: GitCommandRunner;
@@ -47,14 +54,16 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
 
     // Check for unsafe states
     if (await this.isOperationInProgress()) {
-      throw new UnsafeRepositoryStateError('Repository operation in progress (merge/rebase/cherry-pick)');
+      throw new UnsafeRepositoryStateError(
+        'Repository operation in progress (merge/rebase/cherry-pick)',
+      );
     }
 
     // Get current branch
     const branchResult = await this.git.run(['branch', '--show-current'], this.repoRoot);
     let currentBranch: string | null = null;
     let isDetached = false;
-    
+
     if (branchResult.exitCode === 0 && branchResult.stdout.trim()) {
       currentBranch = branchResult.stdout.trim();
     } else {

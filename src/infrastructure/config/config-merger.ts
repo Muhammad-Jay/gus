@@ -2,7 +2,7 @@ import type { Configuration } from '../../application/ports/configuration.port.j
 
 export function mergeConfigurations(...configs: Configuration[]): Configuration {
   const result: Configuration = {};
-  
+
   for (const config of configs) {
     if (config.ai) {
       result.ai = { ...result.ai, ...config.ai };
@@ -14,6 +14,6 @@ export function mergeConfigurations(...configs: Configuration[]): Configuration 
       result.ui = { ...result.ui, ...config.ui };
     }
   }
-  
+
   return result;
 }

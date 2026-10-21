@@ -1,5 +1,5 @@
-import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import type { RepositoryCapabilities } from '../../domain/repository/repository-capabilities.js';
+import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 
 export interface RepositoryLocation {
   rootPath: string;

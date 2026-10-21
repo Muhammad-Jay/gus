@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parseGitStatus } from '../../../../src/infrastructure/repository/providers/git-cli/status-parser';
 
 describe('parseGitStatus', () => {

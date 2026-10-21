@@ -1,8 +1,8 @@
-import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import type { Configuration } from '../../application/ports/configuration.port.js';
-import { ConfigurationSchema } from './config.schema.js';
 import { getGlobalConfigPath, getProjectConfigPath } from './config-paths.js';
+import { ConfigurationSchema } from './config.schema.js';
 
 export class ConfigLoader {
   async loadGlobal(): Promise<Configuration> {

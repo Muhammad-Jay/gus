@@ -7,11 +7,21 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["dist", "node_modules"]
+    "ignore": ["dist", "node_modules", "coverage", "opencode.json"]
   },
   "formatter": {
     "enabled": true,
-    "indentStyle": "space"
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
   },
   "organizeImports": {
     "enabled": true

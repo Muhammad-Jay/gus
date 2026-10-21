@@ -1,4 +1,8 @@
-import type { RepositoryChange, ChangeStatus, StagingState } from '../../../../../domain/repository/repository-change.js';
+import type {
+  ChangeStatus,
+  RepositoryChange,
+  StagingState,
+} from '../../../../domain/repository/repository-change.js';
 
 export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
   const changes: RepositoryChange[] = [];
@@ -10,11 +14,11 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
 
   for (const line of lines) {
     if (line.length < 3) continue;
-    
+
     const x = line[0];
     const y = line[1];
     const rest = line.substring(3);
-    
+
     // Handle renames
     if (x === 'R' || y === 'R') {
       const parts = rest.split(' -> ');
@@ -37,7 +41,7 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
         continue;
       }
     }
-    
+
     // Untracked files
     if (x === '?' && y === '?') {
       changes.push({
@@ -49,7 +53,7 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
       });
       continue;
     }
-    
+
     // Conflicts
     if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
       changes.push({
@@ -61,7 +65,7 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
       });
       continue;
     }
-    
+
     // Determine status
     let status: ChangeStatus = 'modified';
     const code = x !== ' ' ? x : y;
@@ -70,12 +74,12 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
     else if (code === 'M') status = 'modified';
     else if (code === 'R') status = 'renamed';
     else if (code === 'C') status = 'copied';
-    
+
     // Determine staging state
     let stagingState: StagingState = 'unstaged';
     const hasStaged = x !== ' ' && x !== '?';
     const hasUnstaged = y !== ' ' && y !== '?';
-    
+
     if (hasStaged && !hasUnstaged) {
       stagingState = 'staged';
     } else if (!hasStaged && hasUnstaged) {
@@ -84,7 +88,7 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
       // File has both staged and unstaged changes - treat as staged for now
       stagingState = 'staged';
     }
-    
+
     changes.push({
       path: rest,
       status,
@@ -93,6 +97,6 @@ export function parseGitStatus(porcelainOutput: string): RepositoryChange[] {
       hasUnstagedChanges: hasUnstaged,
     });
   }
-  
+
   return changes;
 }

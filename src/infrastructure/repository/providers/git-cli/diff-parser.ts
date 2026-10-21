@@ -9,11 +9,15 @@ export function parseDiffStat(diffStatOutput: string): DiffInfo[] {
   if (!diffStatOutput.trim()) {
     return results;
   }
-  
+
   const lines = diffStatOutput.split('\n').filter((line) => line.trim());
   for (const line of lines) {
     // Skip summary line
-    if (line.includes('files changed') || line.includes('insertions') || line.includes('deletions')) {
+    if (
+      line.includes('files changed') ||
+      line.includes('insertions') ||
+      line.includes('deletions')
+    ) {
       continue;
     }
     // Basic parsing - can be enhanced later

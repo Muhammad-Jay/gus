@@ -1,4 +1,7 @@
-import type { RepositoryAdapter, RepositoryLocation } from '../../../application/ports/repository.port.js';
+import type {
+  RepositoryAdapter,
+  RepositoryLocation,
+} from '../../application/ports/repository.port.js';
 
 export class RepositoryProviderRegistry {
   private providers: RepositoryAdapter[] = [];
@@ -7,7 +10,9 @@ export class RepositoryProviderRegistry {
     this.providers.push(provider);
   }
 
-  async detect(cwd: string): Promise<{ adapter: RepositoryAdapter; location: RepositoryLocation } | null> {
+  async detect(
+    cwd: string,
+  ): Promise<{ adapter: RepositoryAdapter; location: RepositoryLocation } | null> {
     for (const provider of this.providers) {
       const location = await provider.detect(cwd);
       if (location) {

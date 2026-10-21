@@ -1,10 +1,13 @@
+import type { RepositoryChange } from '../../domain/repository/repository-change.js';
+import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import type { CommitTemplate } from '../../domain/templates/commit-template.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
 export interface WorkflowPlanningInput {
-  repositorySnapshot: any;
-  changes: any[];
+  repositorySnapshot: RepositorySnapshot;
+  changes: RepositoryChange[];
   instructions: string;
-  template?: any;
+  template?: CommitTemplate;
   currentBranch: string | null;
 }
 

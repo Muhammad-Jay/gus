@@ -1,5 +1,7 @@
+import type { ExecutionResult } from '../../application/services/workflow-executor.service.js';
+
 export class ResultView {
-  display(result: any) {
+  display(result: ExecutionResult) {
     console.log('\n✅ Result:');
     if (result.success) {
       console.log('  Status: Success');

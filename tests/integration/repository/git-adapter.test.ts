@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { execa } from 'execa';
-import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ProcessRunner } from '../../../src/infrastructure/process/process-runner';
+import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 
 describe('GitRepositoryAdapter', () => {
   let tempDir: string;
@@ -14,7 +14,7 @@ describe('GitRepositoryAdapter', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'gus-test-'));
     const processRunner = new ProcessRunner();
     adapter = new GitRepositoryAdapter(processRunner);
-    
+
     // Initialize git repo
     await execa('git', ['init'], { cwd: tempDir });
     await execa('git', ['config', 'user.email', 'test@test.com'], { cwd: tempDir });

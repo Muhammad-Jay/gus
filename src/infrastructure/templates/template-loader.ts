@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
@@ -30,11 +30,12 @@ export class TemplateLoader {
 
     const placeholders: string[] = [];
     const placeholderRegex = /\{\{(\w+)\}\}/g;
-    let match;
-    while ((match = placeholderRegex.exec(templateBlock)) !== null) {
+    let match: RegExpExecArray | null = placeholderRegex.exec(templateBlock);
+    while (match !== null) {
       if (!placeholders.includes(match[1])) {
         placeholders.push(match[1]);
       }
+      match = placeholderRegex.exec(templateBlock);
     }
 
     const rules: string[] = [];

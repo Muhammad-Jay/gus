@@ -1,5 +1,5 @@
-import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
 export class WorkflowValidator {
   validate(plan: WorkflowPlan, snapshot: RepositorySnapshot): { valid: boolean; errors: string[] } {

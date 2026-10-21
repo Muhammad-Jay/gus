@@ -8,9 +8,7 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "dev": "tsx src/cli/main.ts",
     "build": "tsup",
