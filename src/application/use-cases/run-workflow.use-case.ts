@@ -1,58 +1,208 @@
+import {
+  NoRepositoryError,
+  PlanValidationError,
+  UnsafeRepositoryStateError,
+  VerificationError,
+} from '../../domain/errors/domain-errors.js';
 import { PolicyEvaluator } from '../../domain/policy/policy-evaluator.js';
-import type { AiPlanner } from '../ports/ai-planner.port.js';
+import type { RepositoryChange } from '../../domain/repository/repository-change.js';
+import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import type { WorkflowDecision } from '../../domain/workflow/workflow-decision.js';
+import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
+import { toErrorMessage } from '../../shared/errors.js';
+import type { AiPlannerFactory } from '../ports/ai-planner.port.js';
+import type { ApprovalPort } from '../ports/approval.port.js';
 import type { ConfigurationService } from '../ports/configuration.port.js';
 import type { InstructionLoader } from '../ports/instruction-loader.port.js';
+import type { ProgressReporter } from '../ports/progress.port.js';
 import type { RepositoryAdapter } from '../ports/repository.port.js';
+import type { TemplateLoaderPort } from '../ports/template-loader.port.js';
 import { WorkflowExecutor } from '../services/workflow-executor.service.js';
 import { WorkflowValidator } from '../services/workflow-validator.service.js';
 
+export type WorkflowStatus = 'completed' | 'failed' | 'no-changes' | 'planned';
+
+export interface WorkflowRunResult {
+  status: WorkflowStatus;
+  snapshot: RepositorySnapshot;
+  plan?: WorkflowPlan;
+  provider?: string;
+  modelId?: string;
+  decision?: WorkflowDecision;
+  verification?: RepositorySnapshot;
+  failure?: string;
+}
+
+export interface RunWorkflowOptions {
+  cwd: string;
+  dryRun?: boolean;
+}
+
+export interface RunWorkflowDependencies {
+  repository: RepositoryAdapter;
+  configService: ConfigurationService;
+  instructionLoader: InstructionLoader;
+  templateLoader: TemplateLoaderPort;
+  plannerFactory: AiPlannerFactory;
+  approval: ApprovalPort;
+  progress: ProgressReporter;
+}
+
+function changeKey(change: RepositoryChange): string {
+  return [
+    change.path,
+    change.status,
+    change.stagingState,
+    String(change.hasStagedChanges ?? false),
+    String(change.hasUnstagedChanges ?? false),
+  ].join(':');
+}
+
+function stateChanged(before: RepositorySnapshot, after: RepositorySnapshot): boolean {
+  if (before.currentBranch !== after.currentBranch) {
+    return true;
+  }
+
+  const beforeChanges = new Set(before.changes.map(changeKey));
+  const afterChanges = new Set(after.changes.map(changeKey));
+
+  if (beforeChanges.size !== afterChanges.size) {
+    return true;
+  }
+
+  for (const key of beforeChanges) {
+    if (!afterChanges.has(key)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export class RunWorkflowUseCase {
-  constructor(
-    private repository: RepositoryAdapter,
-    private aiPlanner: AiPlanner,
-    private configService: ConfigurationService,
-    private instructionLoader: InstructionLoader,
-  ) {}
+  constructor(private readonly dependencies: RunWorkflowDependencies) {}
 
-  async execute() {
-    // 1. Inspect repository
-    const snapshot = await this.repository.inspect();
+  async execute(options: RunWorkflowOptions): Promise<WorkflowRunResult> {
+    try {
+      return await this.run(options);
+    } catch (error) {
+      this.dependencies.progress.emit({ type: 'workflow.failed', message: toErrorMessage(error) });
+      throw error;
+    }
+  }
 
-    // 2. Load config and instructions
-    const config = await this.configService.getMerged();
-    const instructions = await this.instructionLoader.loadInstructions(snapshot.rootPath);
+  private async run(options: RunWorkflowOptions): Promise<WorkflowRunResult> {
+    const { repository, configService, instructionLoader, templateLoader, plannerFactory } =
+      this.dependencies;
+    const { progress } = this.dependencies;
 
-    // 3. Plan with AI
-    const plan = await this.aiPlanner.plan({
+    progress.emit({ type: 'repository.detecting' });
+    const location = await repository.detect(options.cwd);
+    if (location === null) {
+      throw new NoRepositoryError(`No Git repository found at or above ${options.cwd}.`);
+    }
+
+    progress.emit({ type: 'repository.inspecting' });
+    const snapshot = await repository.inspect();
+
+    if (snapshot.changes.length === 0) {
+      return { status: 'no-changes', snapshot };
+    }
+
+    progress.emit({ type: 'configuration.loading' });
+    const configuration = await configService.getMerged(snapshot.rootPath);
+
+    progress.emit({ type: 'instructions.loading' });
+    const instructions = await instructionLoader.loadInstructions(snapshot.rootPath);
+
+    progress.emit({ type: 'template.loading' });
+    const template = await templateLoader.loadTemplate(snapshot.rootPath);
+
+    progress.emit({ type: 'ai.planning' });
+    const resolved = plannerFactory.create(configuration);
+    const plan = await resolved.planner.plan({
       repositorySnapshot: snapshot,
       changes: snapshot.changes,
       instructions: instructions.combined,
+      ...(template !== null ? { template } : {}),
       currentBranch: snapshot.currentBranch,
     });
 
-    // 4. Validate plan
-    const validator = new WorkflowValidator();
-    const validation = validator.validate(plan, snapshot);
+    progress.emit({ type: 'plan.validating' });
+    const validation = new WorkflowValidator().validate(plan, snapshot);
     if (!validation.valid) {
-      throw new Error(`Plan validation failed: ${validation.errors.join(', ')}`);
+      throw new PlanValidationError(
+        `The AI workflow plan is not safe to execute: ${validation.errors.join('; ')}`,
+        validation.errors,
+      );
     }
 
-    // 5. Evaluate policy
-    const policyEvaluator = new PolicyEvaluator();
-    const policy = policyEvaluator.evaluate(plan, {
-      autoCommit: config.workflow?.autoCommit ?? 'ask',
-      autoCreateBranch: config.workflow?.autoCreateBranch ?? 'ask',
-      autoStage: config.workflow?.autoStage ?? 'ask',
-      splitChanges: config.workflow?.splitChanges ?? 'ask',
+    const policy = new PolicyEvaluator().evaluate(plan, {
+      autoCommit: configuration.workflow?.autoCommit ?? 'ask',
+      autoCreateBranch: configuration.workflow?.autoCreateBranch ?? 'ask',
+      autoStage: configuration.workflow?.autoStage ?? 'ask',
+      splitChanges: configuration.workflow?.splitChanges ?? 'ask',
     });
 
-    // 6. Execute
-    const executor = new WorkflowExecutor(this.repository);
-    const result = await executor.execute(plan, policy);
+    if (options.dryRun === true) {
+      return {
+        status: 'planned',
+        snapshot,
+        plan,
+        provider: resolved.provider,
+        modelId: resolved.modelId,
+      };
+    }
 
-    // 7. Verify
-    await this.repository.verify();
+    const current = await repository.inspect();
+    if (stateChanged(snapshot, current)) {
+      throw new UnsafeRepositoryStateError(
+        'The repository changed while Gus was planning. Re-run the workflow so the plan matches the current state.',
+      );
+    }
 
-    return result;
+    const executor = new WorkflowExecutor(repository);
+    const decision = await executor.execute(plan, policy, {
+      approval: this.dependencies.approval,
+      progress,
+    });
+
+    if (!decision.success) {
+      progress.emit({
+        type: 'workflow.failed',
+        message: decision.failure ?? 'The workflow did not complete.',
+      });
+      return {
+        status: 'failed',
+        snapshot,
+        plan,
+        provider: resolved.provider,
+        modelId: resolved.modelId,
+        decision,
+        failure: decision.failure,
+      };
+    }
+
+    progress.emit({ type: 'repository.verifying' });
+    const verification = await repository.verify();
+
+    if (verification.changes.length > 0) {
+      const remaining = verification.changes.map((change) => change.path).join(', ');
+      throw new VerificationError(
+        `The workflow finished but the repository is not clean. Remaining changes: ${remaining}`,
+      );
+    }
+
+    progress.emit({ type: 'workflow.completed', success: true });
+
+    return {
+      status: 'completed',
+      snapshot,
+      plan,
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      decision,
+      verification,
+    };
   }
 }

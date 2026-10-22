@@ -31,9 +31,9 @@ Current branch: ${input.currentBranch || 'unknown'}
 You must:
 1. Decide if changes should go on current branch or a new branch
 2. Group related changes into separate commits
-3. Write clear, conventional commit messages
+3. Write clear, conventional commit messages that follow the commit template when provided
 4. Only use files that exist in the changes
-5. Assign each file to at most one commit
+5. Assign every changed file to exactly one commit
 6. Never suggest running shell commands
 
 Return a structured plan with branch strategy, commits with files and messages, and warnings if any.`;

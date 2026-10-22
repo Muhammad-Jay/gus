@@ -8,6 +8,7 @@ import type {
 } from '../../../../application/ports/repository.port.js';
 import {
   NoRepositoryError,
+  OperationFailedError,
   UnsafeRepositoryStateError,
 } from '../../../../domain/errors/domain-errors.js';
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
@@ -94,7 +95,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['checkout', '-b', name], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new Error(`Failed to create branch: ${result.stderr}`);
+      throw new OperationFailedError(`Failed to create branch: ${result.stderr.trim()}`);
     }
   }
 
@@ -104,7 +105,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['checkout', name], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new Error(`Failed to checkout branch: ${result.stderr}`);
+      throw new OperationFailedError(`Failed to checkout branch: ${result.stderr.trim()}`);
     }
   }
 
@@ -117,8 +118,19 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['add', '--', ...paths], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new Error(`Failed to stage paths: ${result.stderr}`);
+      throw new OperationFailedError(`Failed to stage paths: ${result.stderr.trim()}`);
     }
+  }
+
+  async getStagedPaths(): Promise<string[]> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+    const result = await this.git.run(['diff', '--cached', '--name-only', '-z'], this.repoRoot);
+    if (result.exitCode !== 0) {
+      throw new OperationFailedError(`Failed to inspect staged paths: ${result.stderr.trim()}`);
+    }
+    return result.stdout.split('\0').filter((path) => path.length > 0);
   }
 
   async commit(message: string): Promise<CommitResult> {
@@ -127,7 +139,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['commit', '-m', message], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new Error(`Failed to commit: ${result.stderr}`);
+      throw new OperationFailedError(`Failed to commit: ${result.stderr.trim()}`);
     }
     // Get commit SHA
     const shaResult = await this.git.run(['rev-parse', 'HEAD'], this.repoRoot);

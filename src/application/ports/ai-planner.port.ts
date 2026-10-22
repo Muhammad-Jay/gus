@@ -1,3 +1,4 @@
+import type { Configuration } from '../../domain/config/configuration.js';
 import type { RepositoryChange } from '../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
@@ -13,4 +14,14 @@ export interface WorkflowPlanningInput {
 
 export interface AiPlanner {
   plan(input: WorkflowPlanningInput): Promise<WorkflowPlan>;
+}
+
+export interface ResolvedPlanner {
+  provider: string;
+  modelId: string;
+  planner: AiPlanner;
+}
+
+export interface AiPlannerFactory {
+  create(configuration: Configuration): ResolvedPlanner;
 }

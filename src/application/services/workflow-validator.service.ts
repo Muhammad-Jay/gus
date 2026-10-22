@@ -1,21 +1,38 @@
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import { isValidBranchName } from '../../domain/workflow/branch-name.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
-export class WorkflowValidator {
-  validate(plan: WorkflowPlan, snapshot: RepositorySnapshot): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
 
-    // Validate that all paths in commit groups exist in changes
-    const allChangePaths = new Set(snapshot.changes.map((c) => c.path));
+export class WorkflowValidator {
+  validate(plan: WorkflowPlan, snapshot: RepositorySnapshot): ValidationResult {
+    const errors: string[] = [];
+    const changePaths = new Set(snapshot.changes.map((change) => change.path));
+
     for (const commit of plan.commits) {
+      if (commit.files.length === 0) {
+        errors.push(`Commit "${commit.message}" has no files.`);
+      }
+
+      if (commit.message.trim() === '') {
+        errors.push('Commit messages must not be empty.');
+      }
+
+      const seenInGroup = new Set<string>();
       for (const file of commit.files) {
-        if (!allChangePaths.has(file)) {
+        if (!changePaths.has(file)) {
           errors.push(`Path not found in changes: ${file}`);
         }
+        if (seenInGroup.has(file)) {
+          errors.push(`File appears more than once in commit "${commit.message}": ${file}`);
+        }
+        seenInGroup.add(file);
       }
     }
 
-    // Validate no duplicate file assignments
     const assignedFiles = new Set<string>();
     for (const commit of plan.commits) {
       for (const file of commit.files) {
@@ -26,15 +43,18 @@ export class WorkflowValidator {
       }
     }
 
-    // Validate branch name when creating new branch
-    if (plan.branch.strategy === 'new' && !plan.branch.name) {
-      errors.push('Branch name required when creating new branch');
+    for (const change of snapshot.changes) {
+      if (!assignedFiles.has(change.path)) {
+        errors.push(`Change not assigned to any commit: ${change.path}`);
+      }
     }
 
-    // Check all changes are assigned or explicitly handled
-    const unassigned = snapshot.changes.filter((c) => !assignedFiles.has(c.path));
-    if (unassigned.length > 0 && plan.commits.length > 0) {
-      // This is a warning-level issue in practice; for MVP, allow but could track
+    if (plan.branch.strategy === 'new') {
+      if (plan.branch.name === undefined || plan.branch.name.trim() === '') {
+        errors.push('Branch name is required when creating a new branch.');
+      } else if (!isValidBranchName(plan.branch.name)) {
+        errors.push(`Invalid branch name: ${plan.branch.name}`);
+      }
     }
 
     return {

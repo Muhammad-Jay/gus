@@ -1,5 +1,9 @@
 import type { LanguageModelV1 } from 'ai';
-import type { AiPlanner } from '../../application/ports/ai-planner.port.js';
+import type {
+  AiPlanner,
+  AiPlannerFactory,
+  ResolvedPlanner,
+} from '../../application/ports/ai-planner.port.js';
 import type { Configuration } from '../../domain/config/configuration.js';
 import { InvalidConfigurationError } from '../../domain/errors/domain-errors.js';
 import type { AiProviderRegistry } from './ai-provider-registry.js';
@@ -12,8 +16,18 @@ export interface ResolvedAi {
   temperature?: number;
 }
 
-export class ModelResolver {
+export class ModelResolver implements AiPlannerFactory {
   constructor(private readonly registry: AiProviderRegistry) {}
+
+  create(configuration: Configuration): ResolvedPlanner {
+    const resolved = this.resolve(configuration);
+
+    return {
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      planner: resolved.planner,
+    };
+  }
 
   resolve(configuration: Configuration): ResolvedAi {
     const providerName = configuration.ai?.provider;

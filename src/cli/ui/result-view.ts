@@ -1,18 +1,19 @@
-import type { ExecutionResult } from '../../application/services/workflow-executor.service.js';
+import type { WorkflowRunResult } from '../../application/use-cases/run-workflow.use-case.js';
 
 export class ResultView {
-  display(result: ExecutionResult) {
-    console.log('\n✅ Result:');
-    if (result.success) {
-      console.log('  Status: Success');
-    } else {
-      console.log('  Status: Failed');
+  display(result: WorkflowRunResult): void {
+    console.log('\nResult:');
+    console.log(`  Status: ${result.status}`);
+
+    for (const operation of result.decision?.operations ?? []) {
+      const reason = operation.reason !== undefined ? ` (${operation.reason})` : '';
+      console.log(`  - [${operation.outcome}] ${operation.description}${reason}`);
     }
-    if (result.operations) {
-      for (const op of result.operations) {
-        console.log(`  • ${op}`);
-      }
+
+    if (result.failure !== undefined) {
+      console.log(`  Failure: ${result.failure}`);
     }
+
     console.log();
   }
 }

@@ -18,6 +18,7 @@ export interface RepositoryAdapter {
   createBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
   stagePaths(paths: string[]): Promise<void>;
+  getStagedPaths(): Promise<string[]>;
   commit(message: string): Promise<CommitResult>;
   verify(): Promise<RepositorySnapshot>;
 }
