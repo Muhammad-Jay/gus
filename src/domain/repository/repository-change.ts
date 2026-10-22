@@ -7,7 +7,7 @@ export type ChangeStatus =
   | 'unmerged'
   | 'unknown';
 
-export type StagingState = 'staged' | 'unstaged' | 'untracked';
+export type StagingState = 'staged' | 'unstaged' | 'untracked' | 'mixed';
 
 export interface RepositoryChange {
   path: string;

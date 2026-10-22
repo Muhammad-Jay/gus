@@ -9,6 +9,7 @@ import type {
 import {
   NoRepositoryError,
   OperationFailedError,
+  RepositoryInspectionError,
   UnsafeRepositoryStateError,
 } from '../../../../domain/errors/domain-errors.js';
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
@@ -76,7 +77,15 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     // Get status
-    const statusResult = await this.git.run(['status', '--porcelain=v1'], this.repoRoot);
+    const statusResult = await this.git.run(
+      ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+      this.repoRoot,
+    );
+    if (statusResult.exitCode !== 0) {
+      throw new RepositoryInspectionError(
+        `Failed to inspect repository status (exit code ${statusResult.exitCode}): ${statusResult.stderr.trim()}`,
+      );
+    }
     const changes = parseGitStatus(statusResult.stdout);
 
     return {
