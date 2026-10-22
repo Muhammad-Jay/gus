@@ -77,34 +77,34 @@ export class AiSdkPlannerAdapter implements AiPlanner {
 
   private mapError(error: unknown): Error {
     if (hasTimeoutInChain(error)) {
-      return new AiTimeoutError(`AI planning timed out: ${errorMessage(error)}`);
+      return new AiTimeoutError(`The request timed out: ${errorMessage(error)}`);
     }
 
     if (error instanceof LoadAPIKeyError) {
       return new AiAuthenticationError(
-        `AI authentication failed: ${errorMessage(error)}. Set OPENAI_API_KEY or configure an API key.`,
+        `An API key is missing. Set OPENAI_API_KEY or configure an API key. (${errorMessage(error)})`,
       );
     }
 
     if (error instanceof APICallError) {
       if (error.statusCode === 401 || error.statusCode === 403) {
         return new AiAuthenticationError(
-          `AI authentication failed (HTTP ${error.statusCode}): ${errorMessage(error)}`,
+          `The provider rejected the credentials (HTTP ${error.statusCode}): ${errorMessage(error)}`,
         );
       }
-      return new AiProviderError(`AI provider request failed: ${errorMessage(error)}`);
+      return new AiProviderError(`The provider request failed: ${errorMessage(error)}`);
     }
 
     if (error instanceof NoSuchModelError) {
-      return new AiProviderError(`AI model is unavailable: ${errorMessage(error)}`);
+      return new AiProviderError(`The model is unavailable: ${errorMessage(error)}`);
     }
 
     if (error instanceof NoObjectGeneratedError || error instanceof TypeValidationError) {
       return new InvalidAiResponseError(
-        `AI returned an unusable workflow plan: ${errorMessage(error)}`,
+        `The provider returned an unusable workflow plan: ${errorMessage(error)}`,
       );
     }
 
-    return new AiProviderError(`AI planning failed: ${errorMessage(error)}`);
+    return new AiProviderError(`The provider request failed: ${errorMessage(error)}`);
   }
 }
