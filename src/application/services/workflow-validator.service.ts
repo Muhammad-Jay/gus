@@ -1,4 +1,6 @@
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import { validateCommitMessage } from '../../domain/templates/commit-message-validator.js';
+import type { CommitTemplate } from '../../domain/templates/commit-template.js';
 import { isValidBranchName } from '../../domain/workflow/branch-name.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
@@ -8,7 +10,11 @@ export interface ValidationResult {
 }
 
 export class WorkflowValidator {
-  validate(plan: WorkflowPlan, snapshot: RepositorySnapshot): ValidationResult {
+  validate(
+    plan: WorkflowPlan,
+    snapshot: RepositorySnapshot,
+    template?: CommitTemplate | null,
+  ): ValidationResult {
     const errors: string[] = [];
     const changePaths = new Set(snapshot.changes.map((change) => change.path));
 
@@ -19,6 +25,8 @@ export class WorkflowValidator {
 
       if (commit.message.trim() === '') {
         errors.push('Commit messages must not be empty.');
+      } else if (template !== undefined && template !== null) {
+        errors.push(...validateCommitMessage(commit.message, template));
       }
 
       const seenInGroup = new Set<string>();

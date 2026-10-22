@@ -125,11 +125,17 @@ export class RunWorkflowUseCase {
       changes: snapshot.changes,
       instructions: instructions.combined,
       ...(template !== null ? { template } : {}),
+      ...(configuration.workflow?.commitStyle !== undefined
+        ? { commitStyle: configuration.workflow.commitStyle }
+        : {}),
+      ...(configuration.workflow?.defaultBranch !== undefined
+        ? { defaultBranch: configuration.workflow.defaultBranch }
+        : {}),
       currentBranch: snapshot.currentBranch,
     });
 
     progress.emit({ type: 'plan.validating' });
-    const validation = new WorkflowValidator().validate(plan, snapshot);
+    const validation = new WorkflowValidator().validate(plan, snapshot, template);
     if (!validation.valid) {
       throw new PlanValidationError(
         `The AI workflow plan is not safe to execute: ${validation.errors.join('; ')}`,

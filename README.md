@@ -79,6 +79,10 @@ Supported keys:
 | `ui.liveUpdates` | `true`, `false` | unset |
 | `ui.color` | `auto`, `always`, `never` | unset |
 
+`ui.liveUpdates: false` disables live progress output. `ui.color` is accepted but reserved for a
+future release; color output currently follows the terminal environment (`NO_COLOR`,
+`FORCE_COLOR`).
+
 Policy values:
 
 - `allow`: perform the operation without prompting.

@@ -9,6 +9,8 @@ export interface WorkflowPlanningInput {
   changes: RepositoryChange[];
   instructions: string;
   template?: CommitTemplate;
+  commitStyle?: string;
+  defaultBranch?: string;
   currentBranch: string | null;
 }
 

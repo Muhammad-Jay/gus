@@ -26,12 +26,15 @@ ${template}
 `
     : ''
 }
+${input.commitStyle ? `Commit style: ${input.commitStyle}\n` : ''}${
+  input.defaultBranch ? `Default branch: ${input.defaultBranch}\n` : ''
+}
 Current branch: ${input.currentBranch || 'unknown'}
 
 You must:
 1. Decide if changes should go on current branch or a new branch
 2. Group related changes into separate commits
-3. Write clear, conventional commit messages that follow the commit template when provided
+3. Write clear commit messages that follow the commit template and commit style when provided
 4. Only use files that exist in the changes
 5. Assign every changed file to exactly one commit
 6. Never suggest running shell commands

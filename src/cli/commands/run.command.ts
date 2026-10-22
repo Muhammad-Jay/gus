@@ -35,8 +35,8 @@ function createApproval(options: RunOptions): ApprovalPort {
   return isInteractive() ? new ClackApproval() : new NonInteractiveApproval();
 }
 
-function createProgress(): ProgressReporter {
-  return isInteractive() ? new ClackProgressReporter() : new NullProgressReporter();
+function createProgress(liveUpdates: boolean): ProgressReporter {
+  return isInteractive() && liveUpdates ? new ClackProgressReporter() : new NullProgressReporter();
 }
 
 function createOverrides(options: RunOptions): ConfigurationPatch | undefined {
@@ -53,14 +53,20 @@ function createOverrides(options: RunOptions): ConfigurationPatch | undefined {
 }
 
 export async function executeRun(options: RunOptions): Promise<void> {
+  const repository = createRepository();
+  const configService = createConfigService(createOverrides(options));
+  const location = await repository.detect(process.cwd());
+  const configuration = await configService.getMerged(location?.rootPath);
+  const liveUpdates = configuration.ui?.liveUpdates !== false;
+
   const useCase = new RunWorkflowUseCase({
-    repository: createRepository(),
-    configService: createConfigService(createOverrides(options)),
+    repository,
+    configService,
     instructionLoader: createInstructionLoader(),
     templateLoader: createTemplateLoader(),
     plannerFactory: createModelResolver(),
     approval: createApproval(options),
-    progress: createProgress(),
+    progress: createProgress(liveUpdates),
   });
 
   const result = await useCase.execute({

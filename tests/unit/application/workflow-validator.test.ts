@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WorkflowValidator } from '../../../src/application/services/workflow-validator.service';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
+import type { CommitTemplate } from '../../../src/domain/templates/commit-template';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
 function snapshot(paths = ['a.ts', 'b.ts']): RepositorySnapshot {
@@ -82,5 +83,50 @@ describe('WorkflowValidator', () => {
 
     expect(missing.errors).toContain('Branch name is required when creating a new branch.');
     expect(invalid.errors).toContain('Invalid branch name: bad name');
+  });
+
+  describe('commit template validation', () => {
+    const template: CommitTemplate = {
+      raw: '',
+      templateBlock: '<type>(<scope>): <summary>',
+      rules: ['- Keep the summary at or below 72 characters.'],
+      placeholders: ['type', 'scope', 'summary'],
+    };
+
+    it('accepts messages that follow the template', () => {
+      const result = validator.validate(
+        plan({ commits: [{ message: 'feat(core): add workflow', files: ['a.ts', 'b.ts'] }] }),
+        snapshot(),
+        template,
+      );
+
+      expect(result).toEqual({ valid: true, errors: [] });
+    });
+
+    it('rejects messages that do not follow the template shape', () => {
+      const result = validator.validate(
+        plan({ commits: [{ message: 'update everything', files: ['a.ts', 'b.ts'] }] }),
+        snapshot(),
+        template,
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain(
+        'Commit subject "update everything" does not match the template "<type>(<scope>): <summary>".',
+      );
+    });
+
+    it('rejects subjects over the template limit', () => {
+      const result = validator.validate(
+        plan({
+          commits: [{ message: `feat(core): ${'x'.repeat(80)}`, files: ['a.ts', 'b.ts'] }],
+        }),
+        snapshot(),
+        template,
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((error) => error.includes('the template allows 72'))).toBe(true);
+    });
   });
 });
