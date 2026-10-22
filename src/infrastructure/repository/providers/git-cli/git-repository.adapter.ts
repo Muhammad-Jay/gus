@@ -10,9 +10,12 @@ import {
   RepositoryInspectionError,
   UnsafeRepositoryStateError,
 } from '../../../../domain/errors/domain-errors.js';
+import type { ChangeContent } from '../../../../domain/repository/change-content.js';
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
+import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
 import type { ProcessRunner } from '../../../process/process-runner.js';
+import { ChangeContentCollector } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
 import { RepositoryFingerprintCalculator } from './repository-fingerprint.js';
@@ -22,12 +25,14 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
   private git: GitCommandRunner;
   private metadata: GitMetadataResolver;
   private fingerprintCalculator: RepositoryFingerprintCalculator;
+  private changeContentCollector: ChangeContentCollector;
   private repoRoot?: string;
 
   constructor(processRunner: ProcessRunner) {
     this.git = new GitCommandRunner(processRunner);
     this.metadata = new GitMetadataResolver(this.git);
     this.fingerprintCalculator = new RepositoryFingerprintCalculator(this.git);
+    this.changeContentCollector = new ChangeContentCollector(this.git);
   }
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {
@@ -105,6 +110,13 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       indexFingerprint: fingerprints.indexFingerprint,
       worktreeFingerprint: fingerprints.worktreeFingerprint,
     };
+  }
+
+  async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+    return this.changeContentCollector.collect(this.repoRoot, changes);
   }
 
   async createBranch(name: string): Promise<void> {

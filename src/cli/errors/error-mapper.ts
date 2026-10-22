@@ -90,6 +90,15 @@ const ERROR_RULES: ErrorRule[] = [
     nextSteps: ['Review the reported validation errors and try again.'],
   },
   {
+    names: ['InsufficientContextError'],
+    exitCode: ExitCode.WorkflowFailed,
+    title: 'Insufficient change context',
+    nextSteps: [
+      'The repository was not modified.',
+      'Review the changed files manually, or split the work into smaller steps.',
+    ],
+  },
+  {
     names: ['PolicyDeniedError'],
     exitCode: ExitCode.ApprovalRequired,
     title: 'Operation denied by policy',

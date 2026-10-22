@@ -441,7 +441,7 @@ gus/
 │   │   │           ├── git-repository.adapter.ts
 │   │   │           ├── git-command-runner.ts
 │   │   │           ├── status-parser.ts
-│   │   │           └── diff-parser.ts
+│   │   │           └── change-content.ts
 │   │   │
 │   │   ├── ai/
 │   │   │   ├── ai-provider-registry.ts

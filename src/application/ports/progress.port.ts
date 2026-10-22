@@ -3,6 +3,7 @@ import type { ApprovalOperation } from './approval.port.js';
 export type WorkflowProgressEvent =
   | { type: 'repository.detecting' }
   | { type: 'repository.inspecting' }
+  | { type: 'repository.collecting' }
   | { type: 'configuration.loading' }
   | { type: 'instructions.loading' }
   | { type: 'template.loading' }

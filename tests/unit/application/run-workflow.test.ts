@@ -13,11 +13,14 @@ import type { TemplateLoaderPort } from '../../../src/application/ports/template
 import { RunWorkflowUseCase } from '../../../src/application/use-cases/run-workflow.use-case';
 import {
   ApprovalRequiredError,
+  InsufficientContextError,
   NoRepositoryError,
   PlanValidationError,
   UnsafeRepositoryStateError,
 } from '../../../src/domain/errors/domain-errors';
+import type { ChangeContent } from '../../../src/domain/repository/change-content';
 import type { RepositoryCapabilities } from '../../../src/domain/repository/repository-capabilities';
+import type { RepositoryChange } from '../../../src/domain/repository/repository-change';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
@@ -51,6 +54,8 @@ class FakeRepository implements RepositoryAdapter {
   commits: string[] = [];
   verifyCalls = 0;
   failCommit = false;
+  changeContents: ChangeContent[] | null = null;
+  getChangeContentsCalls = 0;
 
   constructor(snapshots: RepositorySnapshot[] = [snapshot(), snapshot()]) {
     this.snapshots = snapshots;
@@ -73,6 +78,24 @@ class FakeRepository implements RepositoryAdapter {
   async inspect(): Promise<RepositorySnapshot> {
     const next = this.snapshots.shift();
     return next ?? snapshot({ changes: [] });
+  }
+
+  async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
+    this.getChangeContentsCalls += 1;
+    if (this.changeContents !== null) {
+      return this.changeContents;
+    }
+    return changes.map((change) => ({
+      path: change.path,
+      ...(change.oldPath !== undefined ? { oldPath: change.oldPath } : {}),
+      status: change.status,
+      stagingState: change.stagingState,
+      stagedDiff: '',
+      unstagedDiff: '',
+      addedContent: '',
+      truncated: false,
+      contentOmitted: false,
+    }));
   }
 
   async createBranch(_name: string): Promise<void> {}
@@ -256,6 +279,51 @@ describe('RunWorkflowUseCase', () => {
     expect(result.status).toBe('failed');
     expect(result.failure).toBeDefined();
     expect(result.decision?.success).toBe(false);
+  });
+
+  it('refuses to plan when the repository content could not be collected', async () => {
+    const repository = new FakeRepository();
+    repository.changeContents = [
+      {
+        path: 'a.ts',
+        status: 'modified',
+        stagingState: 'unstaged',
+        stagedDiff: '',
+        unstagedDiff: '',
+        addedContent: '',
+        truncated: false,
+        contentOmitted: true,
+      },
+    ];
+    const { useCase, planner } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
+      InsufficientContextError,
+    );
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('reports the omitted paths when the repository content is incomplete', async () => {
+    const repository = new FakeRepository();
+    repository.changeContents = [
+      {
+        path: 'a.ts',
+        status: 'modified',
+        stagingState: 'unstaged',
+        stagedDiff: '',
+        unstagedDiff: '',
+        addedContent: '',
+        truncated: false,
+        contentOmitted: true,
+      },
+    ];
+    const { useCase } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toMatchObject({
+      name: 'InsufficientContextError',
+      omittedPaths: ['a.ts'],
+    });
   });
 
   it('fails safely when approval is unavailable', async () => {

@@ -16,7 +16,7 @@ reflect the total number of items per phase.
 
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
-| 1. Repository State and Change Analysis | In progress | 17 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
+| 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
 | 2. Workflow Safety and Execution Correctness | Not started | 0 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
@@ -26,7 +26,7 @@ reflect the total number of items per phase.
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
 | Completion Criteria | Not started | 0 / 15 | Release readiness checks |
-| **Total** | | **17 / 233** | |
+| **Total** | | **24 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -34,13 +34,13 @@ Priority: Critical
 
 ### 1.1 Provide the actual changes to the AI planner
 
-- [ ] Extend the repository abstraction to retrieve relevant change content, not only filenames and status metadata.
-- [ ] Retrieve working-tree diffs and staged diffs separately.
-- [ ] Make the actual relevant changes available to `WorkflowPlanningInput`.
-- [ ] Handle new and untracked files so the planner can understand their contents without reading the entire repository.
-- [ ] Replace or remove the incomplete `diff-parser.ts` implementation that currently parses diff-stat output and reports zero additions and deletions.
-- [ ] Bound the amount of content sent to the model and define how oversized changes are handled.
-- [ ] Return a clear manual-review or refusal result when the available context is insufficient for reliable planning.
+- [x] Extend the repository abstraction to retrieve relevant change content, not only filenames and status metadata.
+- [x] Retrieve working-tree diffs and staged diffs separately.
+- [x] Make the actual relevant changes available to `WorkflowPlanningInput`.
+- [x] Handle new and untracked files so the planner can understand their contents without reading the entire repository.
+- [x] Replace or remove the incomplete `diff-parser.ts` implementation that currently parses diff-stat output and reports zero additions and deletions.
+- [x] Bound the amount of content sent to the model and define how oversized changes are handled.
+- [x] Return a clear manual-review or refusal result when the available context is insufficient for reliable planning.
 
 ### 1.2 Improve repository status parsing
 

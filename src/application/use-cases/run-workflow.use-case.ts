@@ -1,4 +1,5 @@
 import {
+  InsufficientContextError,
   NoRepositoryError,
   PlanValidationError,
   UnsafeRepositoryStateError,
@@ -78,6 +79,18 @@ export class RunWorkflowUseCase {
       return { status: 'no-changes', snapshot };
     }
 
+    progress.emit({ type: 'repository.collecting' });
+    const changeContents = await repository.getChangeContents(snapshot.changes);
+    const omittedPaths = changeContents
+      .filter((content) => content.contentOmitted)
+      .map((content) => content.path);
+    if (omittedPaths.length > 0) {
+      throw new InsufficientContextError(
+        `Gus could not collect the full content of ${omittedPaths.length} changed file(s) (${omittedPaths.join(', ')}). The change set is too large to plan reliably. Review the changes manually or split the work into smaller steps.`,
+        omittedPaths,
+      );
+    }
+
     progress.emit({ type: 'configuration.loading' });
     const configuration = await configService.getMerged(snapshot.rootPath);
 
@@ -92,6 +105,7 @@ export class RunWorkflowUseCase {
     const plan = await resolved.planner.plan({
       repositorySnapshot: snapshot,
       changes: snapshot.changes,
+      changeContents,
       instructions: instructions.combined,
       ...(template !== null ? { template } : {}),
       ...(configuration.workflow?.commitStyle !== undefined

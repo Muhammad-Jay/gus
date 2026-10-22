@@ -1,4 +1,6 @@
+import type { ChangeContent } from '../../domain/repository/change-content.js';
 import type { RepositoryCapabilities } from '../../domain/repository/repository-capabilities.js';
+import type { RepositoryChange } from '../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 
 export interface RepositoryLocation {
@@ -15,6 +17,7 @@ export interface RepositoryAdapter {
   detect(cwd: string): Promise<RepositoryLocation | null>;
   getCapabilities(): Promise<RepositoryCapabilities>;
   inspect(): Promise<RepositorySnapshot>;
+  getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]>;
   createBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
   stagePaths(paths: string[]): Promise<void>;
