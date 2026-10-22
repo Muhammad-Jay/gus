@@ -7,6 +7,7 @@ import type {
 const MESSAGES: Partial<Record<WorkflowProgressEvent['type'], string>> = {
   'repository.detecting': 'Detecting repository',
   'repository.inspecting': 'Inspecting repository changes',
+  'repository.collecting': 'Collecting change content',
   'configuration.loading': 'Loading configuration',
   'instructions.loading': 'Loading instructions',
   'template.loading': 'Loading commit template',

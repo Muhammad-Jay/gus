@@ -4,6 +4,7 @@ import {
   AiAuthenticationError,
   AiProviderError,
   ApprovalRequiredError,
+  InsufficientContextError,
   InvalidAiResponseError,
   InvalidArgumentsError,
   InvalidConfigurationError,
@@ -27,6 +28,7 @@ describe('error mapper', () => {
     [new ApprovalRequiredError('approval needed'), ExitCode.ApprovalRequired],
     [new OperationFailedError('commit failed'), ExitCode.WorkflowFailed],
     [new VerificationError('dirty'), ExitCode.WorkflowFailed],
+    [new InsufficientContextError('too large'), ExitCode.WorkflowFailed],
   ])('maps %s to exit code %i', (error, expected) => {
     expect(toExitCode(error)).toBe(expected);
   });

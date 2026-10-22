@@ -7,4 +7,7 @@ export interface RepositorySnapshot {
   isDetached: boolean;
   isOperationInProgress: boolean;
   changes: RepositoryChange[];
+  headSha: string | null;
+  indexFingerprint: string;
+  worktreeFingerprint: string;
 }

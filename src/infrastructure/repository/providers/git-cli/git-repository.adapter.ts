@@ -1,6 +1,4 @@
-import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
-import { join } from 'node:path';
 import type {
   CommitResult,
   RepositoryAdapter,
@@ -9,20 +7,32 @@ import type {
 import {
   NoRepositoryError,
   OperationFailedError,
+  RepositoryInspectionError,
   UnsafeRepositoryStateError,
 } from '../../../../domain/errors/domain-errors.js';
+import type { ChangeContent } from '../../../../domain/repository/change-content.js';
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
+import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
 import type { ProcessRunner } from '../../../process/process-runner.js';
+import { ChangeContentCollector } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
+import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
+import { RepositoryFingerprintCalculator } from './repository-fingerprint.js';
 import { parseGitStatus } from './status-parser.js';
 
 export class GitRepositoryAdapter implements RepositoryAdapter {
   private git: GitCommandRunner;
+  private metadata: GitMetadataResolver;
+  private fingerprintCalculator: RepositoryFingerprintCalculator;
+  private changeContentCollector: ChangeContentCollector;
   private repoRoot?: string;
 
   constructor(processRunner: ProcessRunner) {
     this.git = new GitCommandRunner(processRunner);
+    this.metadata = new GitMetadataResolver(this.git);
+    this.fingerprintCalculator = new RepositoryFingerprintCalculator(this.git);
+    this.changeContentCollector = new ChangeContentCollector(this.git);
   }
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {
@@ -54,9 +64,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     // Check for unsafe states
-    if (await this.isOperationInProgress()) {
+    const inProgressOperation = await this.detectInProgressOperation();
+    if (inProgressOperation !== null) {
       throw new UnsafeRepositoryStateError(
-        'Repository operation in progress (merge/rebase/cherry-pick)',
+        `Repository operation in progress: ${inProgressOperation}. Gus will not modify a repository while Git is finishing another operation.`,
       );
     }
 
@@ -76,8 +87,17 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     // Get status
-    const statusResult = await this.git.run(['status', '--porcelain=v1'], this.repoRoot);
+    const statusResult = await this.git.run(
+      ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+      this.repoRoot,
+    );
+    if (statusResult.exitCode !== 0) {
+      throw new RepositoryInspectionError(
+        `Failed to inspect repository status (exit code ${statusResult.exitCode}): ${statusResult.stderr.trim()}`,
+      );
+    }
     const changes = parseGitStatus(statusResult.stdout);
+    const fingerprints = await this.fingerprintCalculator.compute(this.repoRoot);
 
     return {
       rootPath: this.repoRoot,
@@ -86,7 +106,17 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       isDetached,
       isOperationInProgress: false,
       changes,
+      headSha: fingerprints.headSha,
+      indexFingerprint: fingerprints.indexFingerprint,
+      worktreeFingerprint: fingerprints.worktreeFingerprint,
     };
+  }
+
+  async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+    return this.changeContentCollector.collect(this.repoRoot, changes);
   }
 
   async createBranch(name: string): Promise<void> {
@@ -151,14 +181,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     return this.inspect();
   }
 
-  private async isOperationInProgress(): Promise<boolean> {
-    if (!this.repoRoot) return false;
-    const gitDir = join(this.repoRoot, '.git');
-    if (existsSync(join(gitDir, 'MERGE_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'REBASE_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'rebase-merge'))) return true;
-    if (existsSync(join(gitDir, 'rebase-apply'))) return true;
-    return false;
+  private async detectInProgressOperation(): Promise<InProgressOperation | null> {
+    if (!this.repoRoot) {
+      return null;
+    }
+    return this.metadata.detectInProgressOperation(this.repoRoot);
   }
 }

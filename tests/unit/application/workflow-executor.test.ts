@@ -14,7 +14,9 @@ import {
   UnsafeRepositoryStateError,
 } from '../../../src/domain/errors/domain-errors';
 import type { OperationPolicyDecision } from '../../../src/domain/policy/policy-evaluator';
+import type { ChangeContent } from '../../../src/domain/repository/change-content';
 import type { RepositoryCapabilities } from '../../../src/domain/repository/repository-capabilities';
+import type { RepositoryChange } from '../../../src/domain/repository/repository-change';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
@@ -41,6 +43,20 @@ class FakeRepository implements RepositoryAdapter {
 
   async inspect(): Promise<RepositorySnapshot> {
     throw new Error('not used');
+  }
+
+  async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
+    return changes.map((change) => ({
+      path: change.path,
+      ...(change.oldPath !== undefined ? { oldPath: change.oldPath } : {}),
+      status: change.status,
+      stagingState: change.stagingState,
+      stagedDiff: '',
+      unstagedDiff: '',
+      addedContent: '',
+      truncated: false,
+      contentOmitted: false,
+    }));
   }
 
   async createBranch(name: string): Promise<void> {

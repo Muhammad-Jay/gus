@@ -92,6 +92,16 @@ export class PlanValidationError extends DomainError {
   }
 }
 
+export class InsufficientContextError extends DomainError {
+  readonly omittedPaths: string[];
+
+  constructor(message: string, omittedPaths: string[] = []) {
+    super(message);
+    this.name = 'InsufficientContextError';
+    this.omittedPaths = omittedPaths;
+  }
+}
+
 export class PolicyDeniedError extends DomainError {
   constructor(message: string) {
     super(message);
