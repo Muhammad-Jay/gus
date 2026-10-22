@@ -59,6 +59,12 @@ class FakeRepository implements RepositoryAdapter {
     }));
   }
 
+  async validateBranchName(_name: string): Promise<void> {}
+
+  async branchExists(_name: string): Promise<boolean> {
+    return false;
+  }
+
   async createBranch(name: string): Promise<void> {
     this.createdBranches.push(name);
   }
@@ -303,5 +309,22 @@ describe('WorkflowExecutor', () => {
       'executed',
       'failed',
     ]);
+  });
+
+  it('when createBranch throws, the workflow stops and NO staging or commit call is made', async () => {
+    const repository = new FakeRepository();
+    repository.createBranch = async () => {
+      throw new OperationFailedError('branch failed');
+    };
+    const executor = createExecutor(repository);
+    const result = await executor.execute(
+      plan({ branch: { strategy: 'new', name: 'feature/x', reason: 'test' } }),
+      policy({ createBranch: 'allow' }),
+      options('approved'),
+    );
+
+    expect(result.success).toBe(false);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
   });
 });

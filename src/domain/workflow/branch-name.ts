@@ -6,9 +6,6 @@ export interface BranchDecision {
   reason: string;
 }
 
-const INVALID_BRANCH_CHARACTERS = /[ ~^:?*[\\]/;
-const INVALID_BRANCH_SEQUENCES = /(\.\.|\/\/|@\{)/;
-
 function hasControlCharacters(value: string): boolean {
   for (const character of value) {
     const code = character.codePointAt(0) ?? 0;
@@ -20,31 +17,97 @@ function hasControlCharacters(value: string): boolean {
   return false;
 }
 
-export function isValidBranchName(name: string): boolean {
-  if (name.length === 0 || name === '@') {
-    return false;
+function hasSpace(value: string): boolean {
+  return value.includes(' ');
+}
+
+function containsInvalidChars(value: string): boolean {
+  for (const character of value) {
+    if (
+      character === ' ' ||
+      character === '~' ||
+      character === '^' ||
+      character === ':' ||
+      character === '?' ||
+      character === '*' ||
+      character === '[' ||
+      character === '\\'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkBranchNameRules(name: string): string | null {
+  if (name.length === 0) {
+    return 'must not be empty';
+  }
+
+  if (name === '@') {
+    return 'must not be the single character "@"';
   }
 
   if (hasControlCharacters(name)) {
-    return false;
+    return 'must not contain control characters';
   }
 
-  if (name.startsWith('/') || name.endsWith('/') || name.startsWith('-')) {
-    return false;
+  if (hasSpace(name)) {
+    return 'must not contain a space';
   }
 
-  if (name.endsWith('.') || name.endsWith('.lock')) {
-    return false;
+  if (name.startsWith('-')) {
+    return 'must not start with "-"';
   }
 
-  if (INVALID_BRANCH_CHARACTERS.test(name) || INVALID_BRANCH_SEQUENCES.test(name)) {
-    return false;
+  if (name.startsWith('/') || name.endsWith('/')) {
+    return 'must not start or end with "/"';
   }
 
-  return name
-    .split('/')
-    .every(
-      (component) =>
-        component.length > 0 && !component.startsWith('.') && !component.endsWith('.lock'),
-    );
+  if (name.endsWith('.')) {
+    return 'must not end with "."';
+  }
+
+  if (name.endsWith('.lock')) {
+    return 'must not end with ".lock"';
+  }
+
+  if (name.includes('..')) {
+    return 'must not contain ".."';
+  }
+
+  if (name.includes('//')) {
+    return 'must not contain "//"';
+  }
+
+  if (name.includes('@{')) {
+    return 'must not contain "@{"';
+  }
+
+  if (containsInvalidChars(name)) {
+    return 'must not contain invalid characters (~, ^, :, ?, *, [, \\, space)';
+  }
+
+  const components = name.split('/');
+  for (const component of components) {
+    if (component.length === 0) {
+      return 'must not contain empty path components';
+    }
+    if (component.startsWith('.')) {
+      return 'must not contain a path component that begins with "."';
+    }
+    if (component.endsWith('.lock')) {
+      return 'must not contain a path component that ends with ".lock"';
+    }
+  }
+
+  return null;
+}
+
+export function describeBranchNameProblem(name: string): string | null {
+  return checkBranchNameRules(name);
+}
+
+export function isValidBranchName(name: string): boolean {
+  return checkBranchNameRules(name) === null;
 }

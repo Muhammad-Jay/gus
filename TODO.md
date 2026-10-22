@@ -17,7 +17,7 @@ reflect the total number of items per phase.
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
-| 2. Workflow Safety and Execution Correctness | In progress | 7 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
+| 2. Workflow Safety and Execution Correctness | In progress | 12 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
@@ -25,8 +25,7 @@ reflect the total number of items per phase.
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| Completion Criteria | Not started | 0 / 15 | Release readiness checks |
-| **Total** | | **31 / 233** | |
+| **Total** | | **36 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -120,11 +119,11 @@ Priority: Critical — complete before enabling unattended commits as a normal w
 
 ### 2.5 Validate branch names and operations
 
-- [ ] Verify branch names against the rules of the active repository provider before creating a branch.
-- [ ] Add tests for invalid names, reserved sequences, invalid components, and existing branches.
-- [ ] Where Git is the active provider, use Git's own branch-name validation as an authoritative final check.
-- [ ] Keep repository-specific validation inside the Git adapter or a clearly defined provider-specific boundary.
-- [ ] Ensure branch creation failure stops the workflow before staging or committing changes.
+- [x] Verify branch names against the rules of the active repository provider before creating a branch.
+- [x] Add tests for invalid names, reserved sequences, invalid components, and existing branches.
+- [x] Where Git is the active provider, use Git's own branch-name validation as an authoritative final check.
+- [x] Keep repository-specific validation inside the Git adapter or a clearly defined provider-specific boundary.
+- [x] Ensure branch creation failure stops the workflow before staging or committing changes.
 
 ## Phase 3: Prompt Construction and Sensitive Data Handling
 

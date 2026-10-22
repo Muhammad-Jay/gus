@@ -85,7 +85,7 @@ describe('WorkflowValidator', () => {
     );
 
     expect(missing.errors).toContain('Branch name is required when creating a new branch.');
-    expect(invalid.errors).toContain('Invalid branch name: bad name');
+    expect(invalid.errors.some((e) => e.startsWith('Invalid branch name: bad name'))).toBe(true);
   });
 
   describe('commit template validation', () => {

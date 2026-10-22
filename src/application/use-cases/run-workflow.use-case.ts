@@ -1,5 +1,6 @@
 import {
   InsufficientContextError,
+  InvalidBranchNameError,
   NoRepositoryError,
   PlanValidationError,
   UnsafeRepositoryStateError,
@@ -124,6 +125,10 @@ export class RunWorkflowUseCase {
         `The AI workflow plan is not safe to execute: ${validation.errors.join('; ')}`,
         validation.errors,
       );
+    }
+
+    if (plan.branch.strategy === 'new' && plan.branch.name !== undefined) {
+      await repository.validateBranchName(plan.branch.name);
     }
 
     const policy = new PolicyEvaluator().evaluate(plan, {

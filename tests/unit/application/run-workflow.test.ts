@@ -98,6 +98,12 @@ class FakeRepository implements RepositoryAdapter {
     }));
   }
 
+  async validateBranchName(_name: string): Promise<void> {}
+
+  async branchExists(_name: string): Promise<boolean> {
+    return false;
+  }
+
   async createBranch(_name: string): Promise<void> {}
 
   async checkoutBranch(_name: string): Promise<void> {}

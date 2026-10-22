@@ -5,6 +5,7 @@ import type {
   RepositoryLocation,
 } from '../../../../application/ports/repository.port.js';
 import {
+  InvalidBranchNameError,
   NoRepositoryError,
   OperationFailedError,
   RepositoryInspectionError,
@@ -14,6 +15,7 @@ import type { ChangeContent } from '../../../../domain/repository/change-content
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
+import { describeBranchNameProblem } from '../../../../domain/workflow/branch-name.js';
 import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
 import { ChangeContentCollector } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
@@ -119,9 +121,46 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     return this.changeContentCollector.collect(this.repoRoot, changes);
   }
 
+  async validateBranchName(name: string): Promise<void> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+
+    const problem = describeBranchNameProblem(name);
+    if (problem !== null) {
+      throw new InvalidBranchNameError(`Invalid branch name "${name}": ${problem}`, name);
+    }
+
+    const result = await this.git.run(['check-ref-format', '--branch', name], this.repoRoot);
+    if (result.exitCode === null) {
+      throw new RepositoryInspectionError(
+        `Failed to validate branch name "${name}": ${describeProcessFailure(result)}`,
+      );
+    }
+    if (result.exitCode !== 0) {
+      let message = describeProcessFailure(result).trim();
+      message = message.replace(/^fatal:\s*/i, '');
+      message = message.replace(/^['"]|['"]$/g, '');
+      throw new InvalidBranchNameError(`Invalid branch name "${name}": ${message}`, name);
+    }
+  }
+
+  async branchExists(name: string): Promise<boolean> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+    return this.metadata.branchExists(this.repoRoot, name);
+  }
+
   async createBranch(name: string): Promise<void> {
     if (!this.repoRoot) {
       throw new NoRepositoryError('No repository detected');
+    }
+    await this.validateBranchName(name);
+    if (await this.branchExists(name)) {
+      throw new OperationFailedError(
+        `A branch named "${name}" already exists. Choose a different branch name.`,
+      );
     }
     const result = await this.git.run(['checkout', '-b', name], this.repoRoot);
     if (result.exitCode !== 0) {
@@ -133,6 +172,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     if (!this.repoRoot) {
       throw new NoRepositoryError('No repository detected');
     }
+    await this.validateBranchName(name);
     const result = await this.git.run(['checkout', name], this.repoRoot);
     if (result.exitCode !== 0) {
       throw new OperationFailedError(

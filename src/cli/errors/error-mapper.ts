@@ -34,6 +34,15 @@ const ERROR_RULES: ErrorRule[] = [
     nextSteps: ["Check the 'ai' and 'workflow' sections of your configuration file."],
   },
   {
+    names: ['InvalidBranchNameError'],
+    exitCode: ExitCode.InvalidInput,
+    title: 'Invalid branch name',
+    nextSteps: [
+      'Pick a different branch name that follows Git naming rules.',
+      'The repository was not modified.',
+    ],
+  },
+  {
     names: ['NoRepositoryError'],
     exitCode: ExitCode.RepositoryError,
     title: 'No supported repository',

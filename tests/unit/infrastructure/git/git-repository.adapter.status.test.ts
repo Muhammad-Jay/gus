@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RepositoryInspectionError } from '../../../../src/domain/errors/domain-errors';
+import {
+  InvalidBranchNameError,
+  OperationFailedError,
+  RepositoryInspectionError,
+} from '../../../../src/domain/errors/domain-errors';
 import { GitRepositoryAdapter } from '../../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 import { FakeProcessRunner, createProcessRunResult } from '../../../helpers/process-runner-fake';
 
@@ -75,5 +79,162 @@ describe('GitRepositoryAdapter.inspect', () => {
 
     await expect(adapter.inspect()).rejects.toThrow(RepositoryInspectionError);
     await expect(adapter.inspect()).rejects.toThrow('could not be started');
+  });
+});
+
+describe('GitRepositoryAdapter.branch validation and creation', () => {
+  it('validateBranchName resolves for feature/x', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === 'check-ref-format') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.validateBranchName('feature/x')).resolves.toBeUndefined();
+
+    const checkCall = calls.find((args) => args[0] === 'check-ref-format');
+    expect(checkCall).toEqual(['check-ref-format', '--branch', 'feature/x']);
+  });
+
+  it('validateBranchName throws InvalidBranchNameError for a b', async () => {
+    const adapter = createAdapter(() => createProcessRunResult());
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('a b').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('a b');
+  });
+
+  it('validateBranchName throws InvalidBranchNameError for a..b', async () => {
+    const adapter = createAdapter(() => createProcessRunResult());
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('a..b').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('a..b');
+  });
+
+  it('validateBranchName throws InvalidBranchNameError for a@{b', async () => {
+    const adapter = createAdapter(() => createProcessRunResult());
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('a@{b').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('a@{b');
+  });
+
+  it('validateBranchName throws InvalidBranchNameError for -a', async () => {
+    const adapter = createAdapter(() => createProcessRunResult());
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('-a').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('-a');
+  });
+
+  it('validateBranchName throws InvalidBranchNameError for a.lock/b', async () => {
+    const adapter = createAdapter(() => createProcessRunResult());
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('a.lock/b').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('a.lock/b');
+  });
+
+  it('validateBranchName throws RepositoryInspectionError when git cannot be executed', async () => {
+    const adapter = createAdapter((args) => {
+      if (args[0] === 'check-ref-format') {
+        return createProcessRunResult({ exitCode: null, spawnFailed: true });
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.validateBranchName('feature/x')).rejects.toBeInstanceOf(
+      RepositoryInspectionError,
+    );
+  });
+
+  it('validateBranchName builds message from git stderr', async () => {
+    const adapter = createAdapter((args) => {
+      if (args[0] === 'check-ref-format') {
+        return createProcessRunResult({
+          exitCode: 128,
+          stderr: "fatal: 'a b' is not a valid branch name",
+        });
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    const error = await adapter.validateBranchName('a b').catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidBranchNameError);
+    expect(String(error.message)).toContain('Invalid branch name "a b"');
+  });
+
+  it('createBranch throws OperationFailedError when the branch already exists and runs no checkout', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === 'check-ref-format') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === 'show-ref') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === 'checkout') {
+        throw new Error('should not be called');
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.createBranch('feature/x')).rejects.toBeInstanceOf(OperationFailedError);
+    expect(calls.some((args) => args[0] === 'checkout')).toBe(false);
+  });
+
+  it('createBranch throws InvalidBranchNameError for an invalid name and runs no checkout', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === 'checkout') {
+        throw new Error('should not be called');
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.createBranch('a b')).rejects.toBeInstanceOf(InvalidBranchNameError);
+    expect(calls.some((args) => args[0] === 'checkout')).toBe(false);
+  });
+
+  it('createBranch succeeds for a new valid name', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === 'check-ref-format') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === 'show-ref') {
+        return createProcessRunResult({ exitCode: 1 });
+      }
+      if (args[0] === 'checkout' && args.includes('-b')) {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.createBranch('feature/x')).resolves.toBeUndefined();
+    expect(calls.some((args) => args[0] === 'checkout' && args.includes('-b'))).toBe(true);
+  });
+
+  it('branchExists returns true for an existing branch and false for a missing one', async () => {
+    const adapter = createAdapter((args) => {
+      if (args[0] === 'show-ref') {
+        if (args.includes('refs/heads/exist')) {
+          return createProcessRunResult({ exitCode: 0 });
+        }
+        return createProcessRunResult({ exitCode: 1 });
+      }
+      return createProcessRunResult();
+    });
+    await adapter.detect(REPO_ROOT);
+    await expect(adapter.branchExists('exist')).resolves.toBe(true);
+    await expect(adapter.branchExists('missing')).resolves.toBe(false);
   });
 });

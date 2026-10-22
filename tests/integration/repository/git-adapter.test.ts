@@ -68,6 +68,19 @@ describe('GitRepositoryAdapter', () => {
     expect(result.message).toBe('initial commit');
   });
 
+  it('create branch integration: validateBranchName accepts it, branchExists returns true, createBranch with same name fails', async () => {
+    await writeFile(join(tempDir, 'test.txt'), 'hello');
+    await execa('git', ['add', '.'], { cwd: tempDir });
+    await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+    await adapter.detect(tempDir);
+    await expect(adapter.validateBranchName('feature/integration')).resolves.toBeUndefined();
+    await adapter.createBranch('feature/integration');
+    await expect(adapter.branchExists('feature/integration')).resolves.toBe(true);
+    await expect(adapter.createBranch('feature/integration')).rejects.toBeInstanceOf(
+      OperationFailedError,
+    );
+  });
+
   it('should refuse to inspect a repository with a merge in progress', async () => {
     await writeFile(join(tempDir, 'test.txt'), 'hello');
     await writeFile(

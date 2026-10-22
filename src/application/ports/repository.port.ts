@@ -18,6 +18,8 @@ export interface RepositoryAdapter {
   getCapabilities(): Promise<RepositoryCapabilities>;
   inspect(): Promise<RepositorySnapshot>;
   getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]>;
+  validateBranchName(name: string): Promise<void>;
+  branchExists(name: string): Promise<boolean>;
   createBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
   stagePaths(paths: string[]): Promise<void>;

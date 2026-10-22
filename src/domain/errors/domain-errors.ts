@@ -129,3 +129,13 @@ export class VerificationError extends DomainError {
     this.name = 'VerificationError';
   }
 }
+
+export class InvalidBranchNameError extends DomainError {
+  readonly branchName?: string;
+
+  constructor(message: string, branchName?: string) {
+    super(message);
+    this.name = 'InvalidBranchNameError';
+    this.branchName = branchName;
+  }
+}

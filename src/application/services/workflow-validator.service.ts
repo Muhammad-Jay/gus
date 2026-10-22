@@ -1,7 +1,7 @@
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import { validateCommitMessage } from '../../domain/templates/commit-message-validator.js';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
-import { isValidBranchName } from '../../domain/workflow/branch-name.js';
+import { describeBranchNameProblem } from '../../domain/workflow/branch-name.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
 export interface ValidationResult {
@@ -60,8 +60,11 @@ export class WorkflowValidator {
     if (plan.branch.strategy === 'new') {
       if (plan.branch.name === undefined || plan.branch.name.trim() === '') {
         errors.push('Branch name is required when creating a new branch.');
-      } else if (!isValidBranchName(plan.branch.name)) {
-        errors.push(`Invalid branch name: ${plan.branch.name}`);
+      } else {
+        const problem = describeBranchNameProblem(plan.branch.name);
+        if (problem !== null) {
+          errors.push(`Invalid branch name: ${plan.branch.name} - ${problem}`);
+        }
       }
     }
 
