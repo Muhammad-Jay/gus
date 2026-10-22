@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { UnsafeRepositoryStateError } from '../../../src/domain/errors/domain-errors';
 import { ProcessRunner } from '../../../src/infrastructure/process/process-runner';
 import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 
@@ -61,5 +62,52 @@ describe('GitRepositoryAdapter', () => {
     const result = await adapter.commit('initial commit');
     expect(result.sha).toBeTruthy();
     expect(result.message).toBe('initial commit');
+  });
+
+  it('should refuse to inspect a repository with a merge in progress', async () => {
+    await writeFile(join(tempDir, 'test.txt'), 'hello');
+    await writeFile(
+      join(tempDir, '.git', 'MERGE_HEAD'),
+      '0000000000000000000000000000000000000000\n',
+    );
+    await adapter.detect(tempDir);
+    await expect(adapter.inspect()).rejects.toThrow(UnsafeRepositoryStateError);
+    await expect(adapter.inspect()).rejects.toThrow('merge');
+  });
+
+  it('should refuse to inspect a repository with a revert in progress', async () => {
+    await writeFile(join(tempDir, 'test.txt'), 'hello');
+    await writeFile(
+      join(tempDir, '.git', 'REVERT_HEAD'),
+      '0000000000000000000000000000000000000000\n',
+    );
+    await adapter.detect(tempDir);
+    await expect(adapter.inspect()).rejects.toThrow(UnsafeRepositoryStateError);
+    await expect(adapter.inspect()).rejects.toThrow('revert');
+  });
+
+  it('should inspect a linked worktree without seeing the main repository state', async () => {
+    await writeFile(join(tempDir, 'test.txt'), 'hello');
+    await execa('git', ['add', '.'], { cwd: tempDir });
+    await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'gus-worktree-'));
+    await rm(worktreeDir, { recursive: true, force: true });
+    await execa('git', ['worktree', 'add', '-b', 'feature/worktree', worktreeDir], {
+      cwd: tempDir,
+    });
+    await writeFile(
+      join(tempDir, '.git', 'MERGE_HEAD'),
+      '0000000000000000000000000000000000000000\n',
+    );
+
+    const worktreeAdapter = new GitRepositoryAdapter(new ProcessRunner());
+    await worktreeAdapter.detect(worktreeDir);
+    const snapshot = await worktreeAdapter.inspect();
+
+    expect(snapshot.rootPath).toBe(worktreeDir);
+    expect(snapshot.currentBranch).toBe('feature/worktree');
+
+    await rm(worktreeDir, { recursive: true, force: true });
   });
 });

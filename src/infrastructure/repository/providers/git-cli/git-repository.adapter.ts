@@ -1,6 +1,4 @@
-import { existsSync } from 'node:fs';
 import { basename } from 'node:path';
-import { join } from 'node:path';
 import type {
   CommitResult,
   RepositoryAdapter,
@@ -16,14 +14,17 @@ import type { RepositoryCapabilities } from '../../../../domain/repository/repos
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
 import type { ProcessRunner } from '../../../process/process-runner.js';
 import { GitCommandRunner } from './git-command-runner.js';
+import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
 import { parseGitStatus } from './status-parser.js';
 
 export class GitRepositoryAdapter implements RepositoryAdapter {
   private git: GitCommandRunner;
+  private metadata: GitMetadataResolver;
   private repoRoot?: string;
 
   constructor(processRunner: ProcessRunner) {
     this.git = new GitCommandRunner(processRunner);
+    this.metadata = new GitMetadataResolver(this.git);
   }
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {
@@ -55,9 +56,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     // Check for unsafe states
-    if (await this.isOperationInProgress()) {
+    const inProgressOperation = await this.detectInProgressOperation();
+    if (inProgressOperation !== null) {
       throw new UnsafeRepositoryStateError(
-        'Repository operation in progress (merge/rebase/cherry-pick)',
+        `Repository operation in progress: ${inProgressOperation}. Gus will not modify a repository while Git is finishing another operation.`,
       );
     }
 
@@ -160,14 +162,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     return this.inspect();
   }
 
-  private async isOperationInProgress(): Promise<boolean> {
-    if (!this.repoRoot) return false;
-    const gitDir = join(this.repoRoot, '.git');
-    if (existsSync(join(gitDir, 'MERGE_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'REBASE_HEAD'))) return true;
-    if (existsSync(join(gitDir, 'rebase-merge'))) return true;
-    if (existsSync(join(gitDir, 'rebase-apply'))) return true;
-    return false;
+  private async detectInProgressOperation(): Promise<InProgressOperation | null> {
+    if (!this.repoRoot) {
+      return null;
+    }
+    return this.metadata.detectInProgressOperation(this.repoRoot);
   }
 }
