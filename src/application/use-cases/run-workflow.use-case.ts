@@ -5,8 +5,8 @@ import {
   VerificationError,
 } from '../../domain/errors/domain-errors.js';
 import { PolicyEvaluator } from '../../domain/policy/policy-evaluator.js';
-import type { RepositoryChange } from '../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import { hasRepositoryStateChanged } from '../../domain/repository/snapshot-comparison.js';
 import type { WorkflowDecision } from '../../domain/workflow/workflow-decision.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 import { toErrorMessage } from '../../shared/errors.js';
@@ -46,37 +46,6 @@ export interface RunWorkflowDependencies {
   plannerFactory: AiPlannerFactory;
   approval: ApprovalPort;
   progress: ProgressReporter;
-}
-
-function changeKey(change: RepositoryChange): string {
-  return [
-    change.path,
-    change.status,
-    change.stagingState,
-    String(change.hasStagedChanges ?? false),
-    String(change.hasUnstagedChanges ?? false),
-  ].join(':');
-}
-
-function stateChanged(before: RepositorySnapshot, after: RepositorySnapshot): boolean {
-  if (before.currentBranch !== after.currentBranch) {
-    return true;
-  }
-
-  const beforeChanges = new Set(before.changes.map(changeKey));
-  const afterChanges = new Set(after.changes.map(changeKey));
-
-  if (beforeChanges.size !== afterChanges.size) {
-    return true;
-  }
-
-  for (const key of beforeChanges) {
-    if (!afterChanges.has(key)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 export class RunWorkflowUseCase {
@@ -161,7 +130,7 @@ export class RunWorkflowUseCase {
     }
 
     const current = await repository.inspect();
-    if (stateChanged(snapshot, current)) {
+    if (hasRepositoryStateChanged(snapshot, current)) {
       throw new UnsafeRepositoryStateError(
         'The repository changed while Gus was planning. Re-run the workflow so the plan matches the current state.',
       );

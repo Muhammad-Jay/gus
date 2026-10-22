@@ -29,6 +29,9 @@ function snapshot(overrides: Partial<RepositorySnapshot> = {}): RepositorySnapsh
     isDetached: false,
     isOperationInProgress: false,
     changes: [{ path: 'a.ts', status: 'modified', stagingState: 'unstaged' }],
+    headSha: 'head-1',
+    indexFingerprint: 'index-1',
+    worktreeFingerprint: 'worktree-1',
     ...overrides,
   };
 }
@@ -229,6 +232,17 @@ describe('RunWorkflowUseCase', () => {
     await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
       UnsafeRepositoryStateError,
     );
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('refuses to execute a plan when the worktree content changed during planning', async () => {
+    const repository = new FakeRepository([
+      snapshot({ worktreeFingerprint: 'worktree-1' }),
+      snapshot({ worktreeFingerprint: 'worktree-2' }),
+    ]);
+    const { useCase } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toThrow(UnsafeRepositoryStateError);
     expect(repository.commits).toEqual([]);
   });
 

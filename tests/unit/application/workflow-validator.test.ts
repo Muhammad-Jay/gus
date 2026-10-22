@@ -12,6 +12,9 @@ function snapshot(paths = ['a.ts', 'b.ts']): RepositorySnapshot {
     isDetached: false,
     isOperationInProgress: false,
     changes: paths.map((path) => ({ path, status: 'modified', stagingState: 'unstaged' })),
+    headSha: 'head-1',
+    indexFingerprint: 'index-1',
+    worktreeFingerprint: 'worktree-1',
   };
 }
 

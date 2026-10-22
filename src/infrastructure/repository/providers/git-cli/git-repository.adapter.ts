@@ -15,16 +15,19 @@ import type { RepositorySnapshot } from '../../../../domain/repository/repositor
 import type { ProcessRunner } from '../../../process/process-runner.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
+import { RepositoryFingerprintCalculator } from './repository-fingerprint.js';
 import { parseGitStatus } from './status-parser.js';
 
 export class GitRepositoryAdapter implements RepositoryAdapter {
   private git: GitCommandRunner;
   private metadata: GitMetadataResolver;
+  private fingerprintCalculator: RepositoryFingerprintCalculator;
   private repoRoot?: string;
 
   constructor(processRunner: ProcessRunner) {
     this.git = new GitCommandRunner(processRunner);
     this.metadata = new GitMetadataResolver(this.git);
+    this.fingerprintCalculator = new RepositoryFingerprintCalculator(this.git);
   }
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {
@@ -89,6 +92,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       );
     }
     const changes = parseGitStatus(statusResult.stdout);
+    const fingerprints = await this.fingerprintCalculator.compute(this.repoRoot);
 
     return {
       rootPath: this.repoRoot,
@@ -97,6 +101,9 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       isDetached,
       isOperationInProgress: false,
       changes,
+      headSha: fingerprints.headSha,
+      indexFingerprint: fingerprints.indexFingerprint,
+      worktreeFingerprint: fingerprints.worktreeFingerprint,
     };
   }
 

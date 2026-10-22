@@ -16,7 +16,7 @@ reflect the total number of items per phase.
 
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
-| 1. Repository State and Change Analysis | In progress | 11 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
+| 1. Repository State and Change Analysis | In progress | 17 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
 | 2. Workflow Safety and Execution Correctness | Not started | 0 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
@@ -26,7 +26,7 @@ reflect the total number of items per phase.
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
 | Completion Criteria | Not started | 0 / 15 | Release readiness checks |
-| **Total** | | **11 / 233** | |
+| **Total** | | **17 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -54,12 +54,12 @@ Priority: Critical
 
 ### 1.3 Strengthen repository-state snapshots
 
-- [ ] Extend the repository snapshot or introduce a separate immutable planning snapshot that captures enough information to detect meaningful state changes.
-- [ ] Include the current branch or reference, `HEAD` commit, relevant index state, change metadata, and fingerprints of the relevant diffs.
-- [ ] Include rename information and all relevant staging-state flags in state comparisons.
-- [ ] Update stale-plan detection. The current comparison detects changes in branch and status metadata but can miss edits to a file whose path and status remain unchanged.
-- [ ] Reject a plan when the repository content or index has changed since planning, even if the same filenames remain modified.
-- [ ] Add tests proving that modifications to a file after planning invalidate the previous plan.
+- [x] Extend the repository snapshot or introduce a separate immutable planning snapshot that captures enough information to detect meaningful state changes.
+- [x] Include the current branch or reference, `HEAD` commit, relevant index state, change metadata, and fingerprints of the relevant diffs.
+- [x] Include rename information and all relevant staging-state flags in state comparisons.
+- [x] Update stale-plan detection. The current comparison detects changes in branch and status metadata but can miss edits to a file whose path and status remain unchanged.
+- [x] Reject a plan when the repository content or index has changed since planning, even if the same filenames remain modified.
+- [x] Add tests proving that modifications to a file after planning invalidate the previous plan.
 
 ### 1.4 Handle repository metadata correctly
 
