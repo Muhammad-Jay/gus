@@ -1,9 +1,17 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { RepositoryInspectionError } from '../../../../domain/errors/domain-errors.js';
+import {
+  type ProcessFailureDetails,
+  describeProcessFailure,
+} from '../../../process/process-runner.js';
+
+export interface GitCommandResult extends ProcessFailureDetails {
+  stdout: string;
+}
 
 export interface GitCommandExecutor {
-  run(args: string[], cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  run(args: string[], cwd: string): Promise<GitCommandResult>;
 }
 
 /**
@@ -43,7 +51,7 @@ export class GitMetadataResolver {
     const result = await this.git.run(['rev-parse', '--absolute-git-dir'], repoRoot);
     if (result.exitCode !== 0) {
       throw new RepositoryInspectionError(
-        `Failed to resolve Git directory: ${result.stderr.trim()}`,
+        `Failed to resolve Git directory: ${describeProcessFailure(result)}`,
       );
     }
     const gitDir = result.stdout.trim();
@@ -82,11 +90,23 @@ export class GitMetadataResolver {
     return null;
   }
 
+  /**
+   * Reports whether a local branch exists.
+   *
+   * A missing reference is reported as `false`. When Git could not be executed reliably, for
+   * example because the executable is missing or the process was terminated, the existence of the
+   * branch is unknown, so an error is raised instead of reporting a missing branch.
+   */
   async branchExists(repoRoot: string, branchName: string): Promise<boolean> {
     const result = await this.git.run(
       ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
       repoRoot,
     );
+    if (result.exitCode === null) {
+      throw new RepositoryInspectionError(
+        `Failed to check whether branch "${branchName}" exists: ${describeProcessFailure(result)}`,
+      );
+    }
     return result.exitCode === 0;
   }
 }

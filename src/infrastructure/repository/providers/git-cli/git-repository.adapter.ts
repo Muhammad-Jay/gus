@@ -14,7 +14,7 @@ import type { ChangeContent } from '../../../../domain/repository/change-content
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
-import type { ProcessRunner } from '../../../process/process-runner.js';
+import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
 import { ChangeContentCollector } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
@@ -93,7 +93,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     );
     if (statusResult.exitCode !== 0) {
       throw new RepositoryInspectionError(
-        `Failed to inspect repository status (exit code ${statusResult.exitCode}): ${statusResult.stderr.trim()}`,
+        `Failed to inspect repository status: ${describeProcessFailure(statusResult)}`,
       );
     }
     const changes = parseGitStatus(statusResult.stdout);
@@ -125,7 +125,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['checkout', '-b', name], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new OperationFailedError(`Failed to create branch: ${result.stderr.trim()}`);
+      throw new OperationFailedError(`Failed to create branch: ${describeProcessFailure(result)}`);
     }
   }
 
@@ -135,7 +135,9 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['checkout', name], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new OperationFailedError(`Failed to checkout branch: ${result.stderr.trim()}`);
+      throw new OperationFailedError(
+        `Failed to checkout branch: ${describeProcessFailure(result)}`,
+      );
     }
   }
 
@@ -148,7 +150,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['add', '--', ...paths], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new OperationFailedError(`Failed to stage paths: ${result.stderr.trim()}`);
+      throw new OperationFailedError(`Failed to stage paths: ${describeProcessFailure(result)}`);
     }
   }
 
@@ -158,7 +160,9 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['diff', '--cached', '--name-only', '-z'], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new OperationFailedError(`Failed to inspect staged paths: ${result.stderr.trim()}`);
+      throw new OperationFailedError(
+        `Failed to inspect staged paths: ${describeProcessFailure(result)}`,
+      );
     }
     return result.stdout.split('\0').filter((path) => path.length > 0);
   }
@@ -169,11 +173,18 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     const result = await this.git.run(['commit', '-m', message], this.repoRoot);
     if (result.exitCode !== 0) {
-      throw new OperationFailedError(`Failed to commit: ${result.stderr.trim()}`);
+      throw new OperationFailedError(`Failed to commit: ${describeProcessFailure(result)}`);
     }
-    // Get commit SHA
     const shaResult = await this.git.run(['rev-parse', 'HEAD'], this.repoRoot);
+    if (shaResult.exitCode !== 0) {
+      throw new OperationFailedError(
+        `Failed to read the commit SHA: ${describeProcessFailure(shaResult)}`,
+      );
+    }
     const sha = shaResult.stdout.trim();
+    if (sha.length === 0) {
+      throw new OperationFailedError('Failed to read the commit SHA: Git returned an empty SHA');
+    }
     return { sha, message };
   }
 

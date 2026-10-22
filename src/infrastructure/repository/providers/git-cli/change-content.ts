@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { OperationFailedError } from '../../../../domain/errors/domain-errors.js';
 import type { ChangeContent } from '../../../../domain/repository/change-content.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
+import { describeProcessFailure } from '../../../process/process-runner.js';
 import type { GitCommandExecutor } from './git-metadata.js';
 
 export const MAX_CHANGED_FILES = 500;
@@ -167,7 +168,7 @@ export class ChangeContentCollector {
     );
     if (result.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to read the staged diff for "${change.path}": ${result.stderr.trim() || `exit code ${result.exitCode}`}`,
+        `Failed to read the staged diff for "${change.path}": ${describeProcessFailure(result)}`,
       );
     }
     return result.stdout;
@@ -180,7 +181,7 @@ export class ChangeContentCollector {
     );
     if (result.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to read the unstaged diff for "${change.path}": ${result.stderr.trim() || `exit code ${result.exitCode}`}`,
+        `Failed to read the unstaged diff for "${change.path}": ${describeProcessFailure(result)}`,
       );
     }
     return result.stdout;
@@ -197,7 +198,7 @@ export class ChangeContentCollector {
     );
     if (result.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to list tracked files: ${result.stderr.trim() || `exit code ${result.exitCode}`}`,
+        `Failed to list tracked files: ${describeProcessFailure(result)}`,
       );
     }
 

@@ -17,7 +17,7 @@ reflect the total number of items per phase.
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
-| 2. Workflow Safety and Execution Correctness | Not started | 0 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
+| 2. Workflow Safety and Execution Correctness | In progress | 7 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
@@ -26,7 +26,7 @@ reflect the total number of items per phase.
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
 | Completion Criteria | Not started | 0 / 15 | Release readiness checks |
-| **Total** | | **24 / 233** | |
+| **Total** | | **31 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -110,13 +110,13 @@ Priority: Critical — complete before enabling unattended commits as a normal w
 
 ### 2.4 Improve process execution reliability
 
-- [ ] Fix `ProcessRunner` so that a process terminated without a numeric exit code cannot be reported as successful.
-- [ ] Preserve process failures, exit codes, and termination signals in the process-runner result or error model.
-- [ ] Ensure spawn failures and other execution errors are reported accurately.
-- [ ] Keep process execution behind the infrastructure boundary.
-- [ ] Continue passing executable names and argument arrays rather than constructing shell command strings.
-- [ ] Add tests for non-zero exit codes, process termination, missing executables, and command failures.
-- [ ] Ensure the Git adapter checks the exit status when retrieving the commit SHA after a successful commit command.
+- [x] Fix `ProcessRunner` so that a process terminated without a numeric exit code cannot be reported as successful.
+- [x] Preserve process failures, exit codes, and termination signals in the process-runner result or error model.
+- [x] Ensure spawn failures and other execution errors are reported accurately.
+- [x] Keep process execution behind the infrastructure boundary.
+- [x] Continue passing executable names and argument arrays rather than constructing shell command strings.
+- [x] Add tests for non-zero exit codes, process termination, missing executables, and command failures.
+- [x] Ensure the Git adapter checks the exit status when retrieving the commit SHA after a successful commit command.
 
 ### 2.5 Validate branch names and operations
 

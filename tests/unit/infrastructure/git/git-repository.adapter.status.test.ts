@@ -1,33 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { RepositoryInspectionError } from '../../../../src/domain/errors/domain-errors';
-import type {
-  ProcessRunOptions,
-  ProcessRunResult,
-} from '../../../../src/infrastructure/process/process-runner';
 import { GitRepositoryAdapter } from '../../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
-
-class FakeProcessRunner {
-  constructor(private readonly handler: (args: string[]) => ProcessRunResult) {}
-
-  async run(
-    _executable: string,
-    args: string[] = [],
-    _options?: ProcessRunOptions,
-  ): Promise<ProcessRunResult> {
-    return this.handler(args);
-  }
-}
+import { FakeProcessRunner, createProcessRunResult } from '../../../helpers/process-runner-fake';
 
 const REPO_ROOT = '/tmp/gus-fake-repository';
 const GIT_DIR = `${REPO_ROOT}/.git`;
 
-function createAdapter(handler: (args: string[]) => ProcessRunResult): GitRepositoryAdapter {
+function createAdapter(
+  handler: (args: string[]) => ReturnType<typeof createProcessRunResult>,
+): GitRepositoryAdapter {
   const runner = new FakeProcessRunner((args) => {
     if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
-      return { stdout: REPO_ROOT, stderr: '', exitCode: 0 };
+      return createProcessRunResult({ stdout: REPO_ROOT });
     }
     if (args[0] === 'rev-parse' && args[1] === '--absolute-git-dir') {
-      return { stdout: GIT_DIR, stderr: '', exitCode: 0 };
+      return createProcessRunResult({ stdout: GIT_DIR });
     }
     return handler(args);
   });
@@ -40,9 +27,9 @@ describe('GitRepositoryAdapter.inspect', () => {
     const adapter = createAdapter((args) => {
       calls.push(args);
       if (args[0] === 'status') {
-        return { stdout: '?? untracked.ts\0', stderr: '', exitCode: 0 };
+        return createProcessRunResult({ stdout: '?? untracked.ts\0' });
       }
-      return { stdout: '', stderr: '', exitCode: 0 };
+      return createProcessRunResult();
     });
 
     await adapter.detect(REPO_ROOT);
@@ -58,14 +45,35 @@ describe('GitRepositoryAdapter.inspect', () => {
   it('fails with a repository inspection error when the status command fails', async () => {
     const adapter = createAdapter((args) => {
       if (args[0] === 'status') {
-        return { stdout: '', stderr: 'fatal: not a git repository', exitCode: 128 };
+        return createProcessRunResult({
+          stderr: 'fatal: not a git repository',
+          exitCode: 128,
+        });
       }
-      return { stdout: '', stderr: '', exitCode: 0 };
+      return createProcessRunResult();
     });
 
     await adapter.detect(REPO_ROOT);
 
     await expect(adapter.inspect()).rejects.toThrow(RepositoryInspectionError);
     await expect(adapter.inspect()).rejects.toThrow('fatal: not a git repository');
+  });
+
+  it('fails with a repository inspection error when the status command cannot be started', async () => {
+    const adapter = createAdapter((args) => {
+      if (args[0] === 'status') {
+        return createProcessRunResult({
+          exitCode: null,
+          spawnFailed: true,
+          failureReason: 'Command failed with ENOENT: git',
+        });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+
+    await expect(adapter.inspect()).rejects.toThrow(RepositoryInspectionError);
+    await expect(adapter.inspect()).rejects.toThrow('could not be started');
   });
 });

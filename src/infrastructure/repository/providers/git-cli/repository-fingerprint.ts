@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { OperationFailedError } from '../../../../domain/errors/domain-errors.js';
+import { describeProcessFailure } from '../../../process/process-runner.js';
 import type { GitCommandExecutor } from './git-metadata.js';
 
 export interface RepositoryFingerprints {
@@ -41,7 +42,7 @@ export class RepositoryFingerprintCalculator {
     const result = await this.git.run(['ls-files', '--stage', '-z'], repoRoot);
     if (result.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to hash repository index: ${result.stderr.trim() || `exit code ${result.exitCode}`}`,
+        `Failed to hash repository index: ${describeProcessFailure(result)}`,
       );
     }
     return this.hashString(result.stdout);
@@ -51,7 +52,7 @@ export class RepositoryFingerprintCalculator {
     const diffResult = await this.git.run(['diff', '--no-color', '-z'], repoRoot);
     if (diffResult.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to hash worktree diff: ${diffResult.stderr.trim() || `exit code ${diffResult.exitCode}`}`,
+        `Failed to hash worktree diff: ${describeProcessFailure(diffResult)}`,
       );
     }
 
@@ -61,7 +62,7 @@ export class RepositoryFingerprintCalculator {
     );
     if (statusResult.exitCode !== 0) {
       throw new OperationFailedError(
-        `Failed to inspect worktree status for fingerprinting: ${statusResult.stderr.trim() || `exit code ${statusResult.exitCode}`}`,
+        `Failed to inspect worktree status for fingerprinting: ${describeProcessFailure(statusResult)}`,
       );
     }
 

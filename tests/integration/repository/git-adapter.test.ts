@@ -3,9 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { UnsafeRepositoryStateError } from '../../../src/domain/errors/domain-errors';
+import {
+  OperationFailedError,
+  UnsafeRepositoryStateError,
+} from '../../../src/domain/errors/domain-errors';
 import { ProcessRunner } from '../../../src/infrastructure/process/process-runner';
 import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
+import { FakeProcessRunner, createProcessRunResult } from '../../helpers/process-runner-fake';
 
 describe('GitRepositoryAdapter', () => {
   let tempDir: string;
@@ -132,5 +136,92 @@ describe('GitRepositoryAdapter', () => {
     expect(snapshot.currentBranch).toBe('feature/worktree');
 
     await rm(worktreeDir, { recursive: true, force: true });
+  });
+
+  describe('commit failures', () => {
+    function createAdapterWithRunner(
+      handler: (args: string[]) => ReturnType<typeof createProcessRunResult>,
+    ): GitRepositoryAdapter {
+      const runner = new FakeProcessRunner((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+          return createProcessRunResult({ stdout: tempDir });
+        }
+        return handler(args);
+      });
+      return new GitRepositoryAdapter(runner);
+    }
+
+    it('should fail when the commit SHA cannot be read after a successful commit', async () => {
+      const adapter = createAdapterWithRunner((args) => {
+        if (args[0] === 'commit') {
+          return createProcessRunResult({ exitCode: 0 });
+        }
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') {
+          return createProcessRunResult({
+            exitCode: 128,
+            stderr: 'fatal: bad revision HEAD',
+            failureReason: 'Command failed with exit code 128: git rev-parse HEAD',
+          });
+        }
+        return createProcessRunResult();
+      });
+      await adapter.detect(tempDir);
+
+      await expect(adapter.commit('initial commit')).rejects.toBeInstanceOf(OperationFailedError);
+      await expect(adapter.commit('initial commit')).rejects.toThrow('fatal: bad revision HEAD');
+      await expect(adapter.commit('initial commit')).rejects.toThrow('exited with code 128');
+    });
+
+    it('should fail when the commit SHA is empty', async () => {
+      const adapter = createAdapterWithRunner((args) => {
+        if (args[0] === 'commit') {
+          return createProcessRunResult({ exitCode: 0 });
+        }
+        if (args[0] === 'rev-parse' && args[1] === 'HEAD') {
+          return createProcessRunResult({ stdout: '   \n' });
+        }
+        return createProcessRunResult();
+      });
+      await adapter.detect(tempDir);
+
+      await expect(adapter.commit('initial commit')).rejects.toBeInstanceOf(OperationFailedError);
+      await expect(adapter.commit('initial commit')).rejects.toThrow('empty SHA');
+    });
+
+    it('should report a commit command that was terminated by a signal', async () => {
+      const adapter = createAdapterWithRunner((args) => {
+        if (args[0] === 'commit') {
+          return createProcessRunResult({
+            exitCode: null,
+            signal: 'SIGTERM',
+            signalDescription: 'Termination',
+            isTerminated: true,
+            failureReason: 'Command was killed with SIGTERM (Termination): git commit',
+          });
+        }
+        return createProcessRunResult();
+      });
+      await adapter.detect(tempDir);
+
+      await expect(adapter.commit('initial commit')).rejects.toBeInstanceOf(OperationFailedError);
+      await expect(adapter.commit('initial commit')).rejects.toThrow('terminated by SIGTERM');
+    });
+
+    it('should report a commit command that could not be started', async () => {
+      const adapter = createAdapterWithRunner((args) => {
+        if (args[0] === 'commit') {
+          return createProcessRunResult({
+            exitCode: null,
+            spawnFailed: true,
+            failureReason: 'Command failed with ENOENT: git',
+          });
+        }
+        return createProcessRunResult();
+      });
+      await adapter.detect(tempDir);
+
+      await expect(adapter.commit('initial commit')).rejects.toBeInstanceOf(OperationFailedError);
+      await expect(adapter.commit('initial commit')).rejects.toThrow('could not be started');
+    });
   });
 });

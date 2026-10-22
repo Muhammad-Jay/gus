@@ -5,7 +5,7 @@ import { GitMetadataResolver } from '../../../../src/infrastructure/repository/p
 interface CommandResult {
   stdout: string;
   stderr: string;
-  exitCode: number;
+  exitCode: number | null;
 }
 
 class FakeGitCommandExecutor {
@@ -156,6 +156,19 @@ describe('GitMetadataResolver', () => {
       const resolver = new GitMetadataResolver(git);
 
       await expect(resolver.branchExists(REPO_ROOT, 'feature/x')).resolves.toBe(false);
+    });
+
+    it('should throw when the branch check could not be executed', async () => {
+      const git = new FakeGitCommandExecutor(() => ({
+        stdout: '',
+        stderr: '',
+        exitCode: null,
+      }));
+      const resolver = new GitMetadataResolver(git);
+
+      await expect(resolver.branchExists(REPO_ROOT, 'feature/x')).rejects.toBeInstanceOf(
+        RepositoryInspectionError,
+      );
     });
   });
 });
