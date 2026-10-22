@@ -10,6 +10,7 @@ import { WorkflowExecutor } from '../../../src/application/services/workflow-exe
 import {
   ApprovalRequiredError,
   OperationFailedError,
+  PolicyDeniedError,
   UnsafeRepositoryStateError,
 } from '../../../src/domain/errors/domain-errors';
 import type { OperationPolicyDecision } from '../../../src/domain/policy/policy-evaluator';
@@ -74,7 +75,13 @@ function approval(outcome: ApprovalOutcome): ApprovalPort {
 }
 
 function policy(overrides: Partial<OperationPolicyDecision> = {}): OperationPolicyDecision {
-  return { createBranch: 'allow', stage: 'allow', commit: 'allow', ...overrides };
+  return {
+    createBranch: 'allow',
+    stage: 'allow',
+    commit: 'allow',
+    splitChanges: 'allow',
+    ...overrides,
+  };
 }
 
 function plan(overrides: Partial<WorkflowPlan> = {}): WorkflowPlan {
@@ -170,19 +177,95 @@ describe('WorkflowExecutor', () => {
     expect(repository.commits).toEqual([]);
   });
 
-  it('skips staging and committing when either is denied', async () => {
+  it('refuses to run when committing is denied', async () => {
+    const repository = new FakeRepository();
+
+    await expect(
+      createExecutor(repository).execute(
+        plan(),
+        policy({ commit: 'deny', splitChanges: 'allow' }),
+        options('approved'),
+      ),
+    ).rejects.toBeInstanceOf(PolicyDeniedError);
+    expect(repository.createdBranches).toEqual([]);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('refuses to run when staging is denied', async () => {
+    const repository = new FakeRepository();
+
+    await expect(
+      createExecutor(repository).execute(
+        plan(),
+        policy({ stage: 'deny', splitChanges: 'allow' }),
+        options('approved'),
+      ),
+    ).rejects.toBeInstanceOf(PolicyDeniedError);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('requires approval before splitting changes into multiple commits', async () => {
     const repository = new FakeRepository();
 
     const decision = await createExecutor(repository).execute(
       plan(),
-      policy({ commit: 'deny' }),
+      policy({ splitChanges: 'ask' }),
       options('approved'),
     );
 
     expect(decision.success).toBe(true);
+    expect(repository.commits).toEqual(['feat: one', 'feat: two']);
+  });
+
+  it('does not mutate anything when splitting is declined', async () => {
+    const repository = new FakeRepository();
+
+    const decision = await createExecutor(repository).execute(
+      plan({ branch: { strategy: 'new', name: 'feature/x', reason: 'isolate' } }),
+      policy({ splitChanges: 'ask' }),
+      options('rejected'),
+    );
+
+    expect(decision.success).toBe(false);
+    expect(repository.createdBranches).toEqual([]);
     expect(repository.staged).toEqual([]);
     expect(repository.commits).toEqual([]);
-    expect(decision.operations.every((operation) => operation.outcome === 'skipped')).toBe(true);
+  });
+
+  it('refuses to split when splitting is denied', async () => {
+    const repository = new FakeRepository();
+
+    await expect(
+      createExecutor(repository).execute(
+        plan(),
+        policy({ splitChanges: 'deny' }),
+        options('approved'),
+      ),
+    ).rejects.toBeInstanceOf(PolicyDeniedError);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('does not ask about splitting for a single commit', async () => {
+    const repository = new FakeRepository();
+    let prompts = 0;
+
+    const decision = await createExecutor(repository).execute(
+      plan({ commits: [{ message: 'feat: one', files: ['a.ts'] }] }),
+      policy({ splitChanges: 'ask' }),
+      {
+        approval: {
+          requestApproval: async () => {
+            prompts += 1;
+            return 'approved';
+          },
+        },
+        progress: new NullProgressReporter(),
+      },
+    );
+
+    expect(decision.success).toBe(true);
+    expect(prompts).toBe(0);
   });
 
   it('reports partial failure and keeps completed operations', async () => {

@@ -1,5 +1,6 @@
 import {
   ApprovalRequiredError,
+  PolicyDeniedError,
   UnsafeRepositoryStateError,
 } from '../../domain/errors/domain-errors.js';
 import type {
@@ -22,6 +23,13 @@ export interface ExecuteWorkflowOptions {
 }
 
 type Resolution = { action: 'execute' } | { action: 'skip'; reason: string; declined?: boolean };
+
+const OPERATION_LABELS: Record<WorkflowOperation, string> = {
+  createBranch: 'Branch creation',
+  splitChanges: 'Splitting changes',
+  stage: 'Staging',
+  commit: 'Committing',
+};
 
 export class WorkflowExecutor {
   constructor(private repository: RepositoryAdapter) {}
@@ -65,6 +73,29 @@ export class WorkflowExecutor {
       );
     }
 
+    if (plan.commits.length > 1) {
+      const splitResolution = await this.resolve(
+        'splitChanges',
+        policy.splitChanges,
+        {
+          operation: 'splitChanges',
+          title: 'Split changes',
+          description: `Create ${plan.commits.length} commits from the inspected changes.`,
+          details: plan.commits.map((commit, index) => `${index + 1}. ${commit.message}`),
+        },
+        options,
+      );
+
+      if (splitResolution.action === 'skip' && splitResolution.declined === true) {
+        return this.abort(
+          operations,
+          'splitChanges',
+          `Skipped splitting into ${plan.commits.length} commits.`,
+          'Splitting changes was declined.',
+        );
+      }
+    }
+
     const stageResolution = await this.resolve(
       'stage',
       policy.stage,
@@ -98,57 +129,22 @@ export class WorkflowExecutor {
     }
 
     if (needsBranch && plan.branch.name !== undefined) {
-      if (branchResolution.action === 'skip') {
+      options.progress.emit({ type: 'branch.creating', name: plan.branch.name });
+      try {
+        await this.repository.createBranch(plan.branch.name);
         operations.push({
           operation: 'createBranch',
-          outcome: 'skipped',
-          description: `Skipped branch "${plan.branch.name}".`,
-          reason: branchResolution.reason,
+          outcome: 'executed',
+          description: `Created branch "${plan.branch.name}".`,
         });
-      } else {
-        options.progress.emit({ type: 'branch.creating', name: plan.branch.name });
-        try {
-          await this.repository.createBranch(plan.branch.name);
-          operations.push({
-            operation: 'createBranch',
-            outcome: 'executed',
-            description: `Created branch "${plan.branch.name}".`,
-          });
-        } catch (error) {
-          return this.fail(
-            operations,
-            'createBranch',
-            `Could not create branch "${plan.branch.name}".`,
-            error,
-          );
-        }
+      } catch (error) {
+        return this.fail(
+          operations,
+          'createBranch',
+          `Could not create branch "${plan.branch.name}".`,
+          error,
+        );
       }
-    }
-
-    if (stageResolution.action === 'skip' || commitResolution.action === 'skip') {
-      const reason =
-        stageResolution.action === 'skip'
-          ? stageResolution.reason
-          : commitResolution.action === 'skip'
-            ? commitResolution.reason
-            : 'Skipped.';
-
-      for (const commit of plan.commits) {
-        operations.push({
-          operation: 'stage',
-          outcome: 'skipped',
-          description: `Skipped staging for "${commit.message}".`,
-          reason,
-        });
-        operations.push({
-          operation: 'commit',
-          outcome: 'skipped',
-          description: `Skipped commit "${commit.message}".`,
-          reason,
-        });
-      }
-
-      return { operations, success: true };
     }
 
     for (const [index, commit] of plan.commits.entries()) {
@@ -196,7 +192,9 @@ export class WorkflowExecutor {
     options: ExecuteWorkflowOptions,
   ): Promise<Resolution> {
     if (decision === 'deny') {
-      return { action: 'skip', reason: `${operation} is denied by the current configuration.` };
+      throw new PolicyDeniedError(
+        `${OPERATION_LABELS[operation]} is denied by the current configuration.`,
+      );
     }
 
     if (decision === 'allow') {
@@ -215,7 +213,7 @@ export class WorkflowExecutor {
     }
 
     throw new ApprovalRequiredError(
-      `Approval is required to ${operation}, but no interactive terminal is available. Re-run with --yes or set the relevant policy to "allow".`,
+      `Approval is required to ${OPERATION_LABELS[operation].toLowerCase()}, but no interactive terminal is available. Re-run with --yes or set the relevant policy to "allow".`,
     );
   }
 
