@@ -4,23 +4,33 @@
   "description": "AI-assisted repository workflow automation tool",
   "type": "module",
   "bin": {
-    "gus": "./dist/index.js"
+    "gus": "./dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": ["dist"],
+  "keywords": ["git", "commit", "ai", "cli", "automation", "workflow"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Muhammad-Jay/gus.git"
+  },
+  "homepage": "https://github.com/Muhammad-Jay/gus#readme",
+  "bugs": {
+    "url": "https://github.com/Muhammad-Jay/gus/issues"
+  },
   "scripts": {
     "dev": "tsx src/cli/main.ts",
     "build": "tsup",
-    "start": "node dist/index.js",
+    "start": "node dist/cli/main.js",
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "ai": "^4.0.0",
