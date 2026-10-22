@@ -16,7 +16,7 @@ reflect the total number of items per phase.
 
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
-| 1. Repository State and Change Analysis | Not started | 0 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
+| 1. Repository State and Change Analysis | In progress | 11 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
 | 2. Workflow Safety and Execution Correctness | Not started | 0 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
@@ -26,7 +26,7 @@ reflect the total number of items per phase.
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
 | Completion Criteria | Not started | 0 / 15 | Release readiness checks |
-| **Total** | | **0 / 233** | |
+| **Total** | | **11 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -44,12 +44,12 @@ Priority: Critical
 
 ### 1.2 Improve repository status parsing
 
-- [ ] Replace line-based Git status parsing with correctly handled NUL-delimited output, such as `git status --porcelain=v1 -z`.
-- [ ] Request individual untracked files rather than relying on directory-level summaries.
-- [ ] Correctly parse added, modified, deleted, renamed, copied, untracked, and conflicted changes.
-- [ ] Preserve both the old and new paths of renamed files.
-- [ ] Correctly represent changes that have both staged and unstaged modifications.
-- [ ] Add tests for filenames containing spaces, tabs, newlines, leading special characters, and rename-related edge cases.
+- [x] Replace line-based Git status parsing with correctly handled NUL-delimited output, such as `git status --porcelain=v1 -z`.
+- [x] Request individual untracked files rather than relying on directory-level summaries.
+- [x] Correctly parse added, modified, deleted, renamed, copied, untracked, and conflicted changes.
+- [x] Preserve both the old and new paths of renamed files.
+- [x] Correctly represent changes that have both staged and unstaged modifications.
+- [x] Add tests for filenames containing spaces, tabs, newlines, leading special characters, and rename-related edge cases.
 - [ ] Check every repository command's exit status before interpreting its output as valid state.
 
 ### 1.3 Strengthen repository-state snapshots
@@ -63,11 +63,11 @@ Priority: Critical
 
 ### 1.4 Handle repository metadata correctly
 
-- [ ] Replace assumptions that `.git` is always a directory beneath the repository root.
-- [ ] Use Git metadata commands such as `git rev-parse --git-dir` and `git rev-parse --git-path` to locate repository state files correctly.
-- [ ] Detect relevant in-progress operations, including merge, rebase, cherry-pick, revert, and sequencer states where applicable.
-- [ ] Verify behavior with Git worktrees and repositories with non-standard Git directory layouts.
-- [ ] Ensure that unsupported or ambiguous states result in a clear refusal rather than a partially informed workflow.
+- [x] Replace assumptions that `.git` is always a directory beneath the repository root.
+- [x] Use Git metadata commands such as `git rev-parse --git-dir` and `git rev-parse --git-path` to locate repository state files correctly.
+- [x] Detect relevant in-progress operations, including merge, rebase, cherry-pick, revert, and sequencer states where applicable.
+- [x] Verify behavior with Git worktrees and repositories with non-standard Git directory layouts.
+- [x] Ensure that unsupported or ambiguous states result in a clear refusal rather than a partially informed workflow.
 - [ ] Use the repository capability interface to determine whether an operation is supported before planning or executing it.
 
 ## Phase 2: Workflow Safety and Execution Correctness

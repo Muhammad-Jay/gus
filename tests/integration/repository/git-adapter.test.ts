@@ -86,6 +86,29 @@ describe('GitRepositoryAdapter', () => {
     await expect(adapter.inspect()).rejects.toThrow('revert');
   });
 
+  it('should inspect a repository with a separate git directory', async () => {
+    const workTreeDir = await mkdtemp(join(tmpdir(), 'gus-separate-'));
+    const separateGitDir = await mkdtemp(join(tmpdir(), 'gus-separate-git-'));
+    await rm(workTreeDir, { recursive: true, force: true });
+    await rm(separateGitDir, { recursive: true, force: true });
+
+    await execa('git', ['init', `--separate-git-dir=${separateGitDir}`, workTreeDir]);
+    await execa('git', ['config', 'user.email', 'test@test.com'], { cwd: workTreeDir });
+    await execa('git', ['config', 'user.name', 'Test'], { cwd: workTreeDir });
+    await writeFile(join(workTreeDir, 'test.txt'), 'hello');
+
+    const separateAdapter = new GitRepositoryAdapter(new ProcessRunner());
+    await separateAdapter.detect(workTreeDir);
+    const snapshot = await separateAdapter.inspect();
+
+    expect(snapshot.rootPath).toBe(workTreeDir);
+    expect(snapshot.changes).toHaveLength(1);
+    expect(snapshot.changes[0].path).toBe('test.txt');
+
+    await rm(workTreeDir, { recursive: true, force: true });
+    await rm(separateGitDir, { recursive: true, force: true });
+  });
+
   it('should inspect a linked worktree without seeing the main repository state', async () => {
     await writeFile(join(tempDir, 'test.txt'), 'hello');
     await execa('git', ['add', '.'], { cwd: tempDir });
