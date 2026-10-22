@@ -8,23 +8,23 @@ import type {
 } from '../../application/ports/instruction-loader.port.js';
 
 export class MarkdownInstructionLoader implements InstructionLoader {
+  constructor(private globalDir?: string) {}
+
   async loadInstructions(repoRoot?: string): Promise<InstructionSet> {
     const sources: string[] = [];
     let globalInstructions = '';
     let projectInstructions = '';
 
-    // Load global instructions
-    const globalPath = join(homedir(), '.config', 'gus', 'GUS.md');
+    const globalPath = join(this.globalDir ?? join(homedir(), '.config', 'gus'), 'GUS.md');
     if (existsSync(globalPath)) {
       try {
         globalInstructions = await readFile(globalPath, 'utf-8');
         sources.push(globalPath);
       } catch {
-        // Ignore errors
+        // Ignore unreadable files.
       }
     }
 
-    // Load project instructions
     if (repoRoot) {
       const projectPath = join(repoRoot, '.gus', 'GUS.md');
       if (existsSync(projectPath)) {
@@ -32,7 +32,7 @@ export class MarkdownInstructionLoader implements InstructionLoader {
           projectInstructions = await readFile(projectPath, 'utf-8');
           sources.push(projectPath);
         } catch {
-          // Ignore errors
+          // Ignore unreadable files.
         }
       }
     }

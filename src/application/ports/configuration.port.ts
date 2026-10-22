@@ -1,24 +1,25 @@
-export interface Configuration {
-  ai?: {
-    provider?: string;
-    model?: string;
-    temperature?: number;
-  };
-  workflow?: {
-    autoCommit?: 'allow' | 'ask' | 'deny';
-    autoCreateBranch?: 'allow' | 'ask' | 'deny';
-    autoStage?: 'allow' | 'ask' | 'deny';
-    splitChanges?: 'allow' | 'ask' | 'deny';
-    commitStyle?: string;
-    defaultBranch?: string;
-  };
-  ui?: {
-    liveUpdates?: boolean;
-    color?: 'auto' | 'always' | 'never';
-  };
-}
+import type {
+  ConfigScope,
+  Configuration,
+  ConfigurationPatch,
+  ResolvedConfiguration,
+} from '../../domain/config/configuration.js';
+
+export type {
+  AutomationPolicy,
+  ConfigKey,
+  ConfigScope,
+  ConfigValueSource,
+  Configuration,
+  ConfigurationPatch,
+  ConfigurationSection,
+  ResolvedConfiguration,
+} from '../../domain/config/configuration.js';
 
 export interface ConfigurationService {
-  load(): Promise<Configuration>;
-  getMerged(): Promise<Configuration>;
+  getMerged(repoRoot?: string): Promise<Configuration>;
+  getResolved(repoRoot?: string): Promise<ResolvedConfiguration>;
+  read(scope: ConfigScope, repoRoot?: string): Promise<Configuration>;
+  write(scope: ConfigScope, patch: ConfigurationPatch, repoRoot?: string): Promise<Configuration>;
+  getLocation(scope: ConfigScope, repoRoot?: string): string;
 }

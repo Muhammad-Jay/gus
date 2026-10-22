@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
 
 export class TemplateLoader {
+  constructor(private globalDir?: string) {}
+
   async loadTemplate(repoRoot?: string): Promise<CommitTemplate | null> {
-    // Try project template first
     if (repoRoot) {
       const projectPath = join(repoRoot, '.gus', 'TEMPLATE.md');
       if (existsSync(projectPath)) {
@@ -14,8 +15,7 @@ export class TemplateLoader {
       }
     }
 
-    // Try global template
-    const globalPath = join(homedir(), '.config', 'gus', 'TEMPLATE.md');
+    const globalPath = join(this.globalDir ?? join(homedir(), '.config', 'gus'), 'TEMPLATE.md');
     if (existsSync(globalPath)) {
       return this.loadFromPath(globalPath);
     }
