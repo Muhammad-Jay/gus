@@ -4,9 +4,9 @@ import {
   OperationFailedError,
   RepositoryInspectionError,
 } from '../../../../src/domain/errors/domain-errors';
+import type { StagedPath } from '../../../../src/domain/workflow/commit-group';
 import { GitRepositoryAdapter } from '../../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 import { FakeProcessRunner, createProcessRunResult } from '../../../helpers/process-runner-fake';
-import type { StagedPath } from '../../../../src/domain/workflow/commit-group';
 
 const REPO_ROOT = '/tmp/gus-fake-repository';
 const GIT_DIR = `${REPO_ROOT}/.git`;
@@ -277,9 +277,13 @@ describe('GitRepositoryAdapter.staging with StagedPath', () => {
 
     await adapter.detect(REPO_ROOT);
     const addCall = await adapter.stagePaths([{ path: 'a.ts' }]).catch(() => {});
-    const callsWithAdd = calls.filter((args) => args[0] === '--literal-pathspecs' && args[1] === 'add');
+    const callsWithAdd = calls.filter(
+      (args) => args[0] === '--literal-pathspecs' && args[1] === 'add',
+    );
     expect(callsWithAdd[0]).toEqual(['--literal-pathspecs', 'add', '--', 'a.ts']);
-    await expect(adapter.stagePaths([{ path: 'a.ts' }])).rejects.toBeInstanceOf(OperationFailedError);
+    await expect(adapter.stagePaths([{ path: 'a.ts' }])).rejects.toBeInstanceOf(
+      OperationFailedError,
+    );
     await expect(adapter.stagePaths([{ path: 'a.ts' }])).rejects.toThrow(
       'Unexpected staged paths: unexpected.ts',
     );
@@ -301,7 +305,9 @@ describe('GitRepositoryAdapter.staging with StagedPath', () => {
 
     await adapter.detect(REPO_ROOT);
     const addCall = await adapter.stagePaths([{ path: 'a.ts' }, { path: 'b.ts' }]).catch(() => {});
-    const callsWithAdd = calls.filter((args) => args[0] === '--literal-pathspecs' && args[1] === 'add');
+    const callsWithAdd = calls.filter(
+      (args) => args[0] === '--literal-pathspecs' && args[1] === 'add',
+    );
     expect(callsWithAdd[0]).toEqual(['--literal-pathspecs', 'add', '--', 'a.ts', 'b.ts']);
     await expect(adapter.stagePaths([{ path: 'a.ts' }, { path: 'b.ts' }])).rejects.toBeInstanceOf(
       OperationFailedError,
@@ -340,7 +346,10 @@ describe('GitRepositoryAdapter.staging with StagedPath', () => {
     await adapter.detect(REPO_ROOT);
     const paths = await adapter.getStagedPaths();
 
-    const diffCall = calls.find((args) => args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached'));
+    const diffCall = calls.find(
+      (args) =>
+        args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached'),
+    );
     expect(diffCall).toEqual(['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z']);
     expect(paths).toEqual(['a.ts', 'b.ts']);
   });

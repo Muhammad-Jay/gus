@@ -92,6 +92,20 @@ export class RunWorkflowUseCase {
       );
     }
 
+    const preStaged = await repository.getStagedPaths();
+    if (preStaged.length > 0) {
+      throw new UnsafeRepositoryStateError(
+        `The repository already has ${preStaged.length} staged path(s). Gus will not mix pre-existing staged work into this workflow. Unstage or commit them first.`,
+      );
+    }
+
+    const hasConflicts = snapshot.changes.some((change) => change.status === 'unmerged');
+    if (hasConflicts) {
+      throw new UnsafeRepositoryStateError(
+        'The repository has unresolved merge conflicts. Resolve them before running Gus.',
+      );
+    }
+
     progress.emit({ type: 'configuration.loading' });
     const configuration = await configService.getMerged(snapshot.rootPath);
 
@@ -159,6 +173,7 @@ export class RunWorkflowUseCase {
     const decision = await executor.execute(plan, policy, {
       approval: this.dependencies.approval,
       progress,
+      originalSnapshot: snapshot,
     });
 
     if (!decision.success) {

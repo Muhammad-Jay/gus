@@ -15,8 +15,8 @@ import type { ChangeContent } from '../../../../domain/repository/change-content
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
-import type { StagedPath } from '../../../../domain/workflow/commit-group.js';
 import { describeBranchNameProblem } from '../../../../domain/workflow/branch-name.js';
+import type { StagedPath } from '../../../../domain/workflow/commit-group.js';
 import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
 import { ChangeContentCollector } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';

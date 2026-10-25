@@ -7,10 +7,10 @@ import {
   OperationFailedError,
   UnsafeRepositoryStateError,
 } from '../../../src/domain/errors/domain-errors';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import { ProcessRunner } from '../../../src/infrastructure/process/process-runner';
 import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 import { FakeProcessRunner, createProcessRunResult } from '../../helpers/process-runner-fake';
-import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 
 describe('GitRepositoryAdapter', () => {
   let tempDir: string;

@@ -12,6 +12,7 @@ import {
   OperationFailedError,
   PolicyDeniedError,
   UnsafeRepositoryStateError,
+  UnsupportedRepositoryError,
 } from '../../../src/domain/errors/domain-errors';
 import type { OperationPolicyDecision } from '../../../src/domain/policy/policy-evaluator';
 import type { ChangeContent } from '../../../src/domain/repository/change-content';
@@ -21,29 +22,43 @@ import type { RepositorySnapshot } from '../../../src/domain/repository/reposito
 import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
+const defaultSnapshot: RepositorySnapshot = {
+  rootPath: '/repo',
+  displayName: 'repo',
+  currentBranch: 'main',
+  isDetached: false,
+  isOperationInProgress: false,
+  changes: [{ path: 'a.ts', status: 'modified', stagingState: 'unstaged' }],
+  headSha: 'head-1',
+  indexFingerprint: 'index-1',
+  worktreeFingerprint: 'worktree-1',
+};
+
 class FakeRepository implements RepositoryAdapter {
   preStaged: string[] = [];
   createdBranches: string[] = [];
   staged: StagedPath[][] = [];
   commits: string[] = [];
   failCommitMessage?: string;
+  inspectSnapshot: RepositorySnapshot = defaultSnapshot;
+  capabilities: RepositoryCapabilities = {
+    canCreateBranch: true,
+    canCheckoutBranch: true,
+    canStagePaths: true,
+    canCommit: true,
+    supportsRenameDetection: true,
+  };
 
   async detect(_cwd: string): Promise<RepositoryLocation | null> {
     return null;
   }
 
   async getCapabilities(): Promise<RepositoryCapabilities> {
-    return {
-      canCreateBranch: true,
-      canCheckoutBranch: true,
-      canStagePaths: true,
-      canCommit: true,
-      supportsRenameDetection: true,
-    };
+    return this.capabilities;
   }
 
   async inspect(): Promise<RepositorySnapshot> {
-    throw new Error('not used');
+    return this.inspectSnapshot;
   }
 
   async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
@@ -131,6 +146,7 @@ function createExecutor(repository: FakeRepository): WorkflowExecutor {
 const options = (outcome: ApprovalOutcome) => ({
   approval: approval(outcome),
   progress: new NullProgressReporter(),
+  originalSnapshot: defaultSnapshot,
 });
 
 describe('WorkflowExecutor', () => {
@@ -155,16 +171,6 @@ describe('WorkflowExecutor', () => {
       'executed',
       'executed',
     ]);
-  });
-
-  it('refuses to run when work is already staged', async () => {
-    const repository = new FakeRepository();
-    repository.preStaged = ['pre-existing.ts'];
-
-    await expect(
-      createExecutor(repository).execute(plan(), policy(), options('approved')),
-    ).rejects.toBeInstanceOf(UnsafeRepositoryStateError);
-    expect(repository.commits).toEqual([]);
   });
 
   it('executes when approval is granted', async () => {
@@ -288,6 +294,7 @@ describe('WorkflowExecutor', () => {
           },
         },
         progress: new NullProgressReporter(),
+        originalSnapshot: defaultSnapshot,
       },
     );
 
@@ -336,12 +343,12 @@ describe('WorkflowExecutor', () => {
   it('throws UnsafeRepositoryStateError when unexpected staged changes appear before a commit', async () => {
     const repository = new FakeRepository();
     // Simulate staged changes appearing before the second commit
-    // Call #1: pre-existing check (line 42), Call #2: before 1st commit, Call #3: before 2nd commit
+    // Call #1: before 1st commit, Call #2: before 2nd commit
     let callCount = 0;
     const originalGetStagedPaths = repository.getStagedPaths.bind(repository);
     repository.getStagedPaths = async () => {
       callCount += 1;
-      if (callCount === 3) {
+      if (callCount === 2) {
         return ['unexpected.ts'];
       }
       return originalGetStagedPaths();
@@ -351,5 +358,72 @@ describe('WorkflowExecutor', () => {
       createExecutor(repository).execute(plan(), policy(), options('approved')),
     ).rejects.toBeInstanceOf(UnsafeRepositoryStateError);
     expect(repository.commits).toEqual(['feat: one']);
+  });
+
+  it('rejects stale plan when repository changes during approval wait', async () => {
+    const repository = new FakeRepository();
+    const originalSnapshot: RepositorySnapshot = {
+      rootPath: '/repo',
+      displayName: 'repo',
+      currentBranch: 'main',
+      isDetached: false,
+      isOperationInProgress: false,
+      changes: [{ path: 'a.ts', status: 'modified', stagingState: 'unstaged' }],
+      headSha: 'head-1',
+      indexFingerprint: 'index-1',
+      worktreeFingerprint: 'worktree-1',
+    };
+    // Return a different snapshot on the second inspect (after approvals)
+    repository.inspectSnapshot = {
+      ...originalSnapshot,
+      worktreeFingerprint: 'worktree-2',
+    };
+
+    await expect(
+      createExecutor(repository).execute(plan(), policy(), options('approved')),
+    ).rejects.toBeInstanceOf(UnsafeRepositoryStateError);
+    expect(repository.createdBranches).toEqual([]);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('refuses to create branch when repository does not support it', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = { ...repository.capabilities, canCreateBranch: false };
+
+    await expect(
+      createExecutor(repository).execute(
+        plan({ branch: { strategy: 'new', name: 'feature/x', reason: 'isolate' } }),
+        policy(),
+        options('approved'),
+      ),
+    ).rejects.toBeInstanceOf(UnsupportedRepositoryError);
+    expect(repository.createdBranches).toEqual([]);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('refuses to stage when repository does not support it', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = { ...repository.capabilities, canStagePaths: false };
+
+    await expect(
+      createExecutor(repository).execute(plan(), policy(), options('approved')),
+    ).rejects.toBeInstanceOf(UnsupportedRepositoryError);
+    expect(repository.createdBranches).toEqual([]);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('refuses to commit when repository does not support it', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = { ...repository.capabilities, canCommit: false };
+
+    await expect(
+      createExecutor(repository).execute(plan(), policy(), options('approved')),
+    ).rejects.toBeInstanceOf(UnsupportedRepositoryError);
+    expect(repository.createdBranches).toEqual([]);
+    expect(repository.staged).toEqual([]);
+    expect(repository.commits).toEqual([]);
   });
 });

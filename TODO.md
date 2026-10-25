@@ -17,7 +17,7 @@ reflect the total number of items per phase.
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
-| 2. Workflow Safety and Execution Correctness | In progress | 20 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
+| 2. Workflow Safety and Execution Correctness | In progress | 27 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
@@ -25,7 +25,7 @@ reflect the total number of items per phase.
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| **Total** | | **44 / 233** | |
+| **Total** | | **51 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -75,13 +75,13 @@ Priority: Critical — complete before enabling unattended commits as a normal w
 
 ### 2.1 Enforce repository safety throughout execution
 
-- [ ] Reject pre-existing staged work before sending repository content to the AI provider, since the current workflow ultimately refuses to mix that work into Gus-managed commits.
-- [ ] Keep the existing staged-work refusal unless a separate, explicitly designed and tested workflow is introduced for preserving and isolating staged changes.
-- [ ] Revalidate repository state after all approval prompts and immediately before the first mutation.
-- [ ] Recheck relevant state before each subsequent staging and commit operation.
-- [ ] Reject stale plans if files, diffs, branch state, or index state change while the user is reviewing the plan.
-- [ ] Ensure that changes introduced between inspection and execution cannot be silently incorporated into a commit.
-- [ ] Ensure that unresolved conflicts or unsupported repository states block automatic execution.
+- [x] Reject pre-existing staged work before sending repository content to the AI provider, since the current workflow ultimately refuses to mix that work into Gus-managed commits.
+- [x] Keep the existing staged-work refusal unless a separate, explicitly designed and tested workflow is introduced for preserving and isolating staged changes.
+- [x] Revalidate repository state after all approval prompts and immediately before the first mutation.
+- [x] Recheck relevant state before each subsequent staging and commit operation.
+- [x] Reject stale plans if files, diffs, branch state, or index state change while the user is reviewing the plan.
+- [x] Ensure that changes introduced between inspection and execution cannot be silently incorporated into a commit.
+- [x] Ensure that unresolved conflicts or unsupported repository states block automatic execution.
 
 ### 2.2 Make staging precise
 

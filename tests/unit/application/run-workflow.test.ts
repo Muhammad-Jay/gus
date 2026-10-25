@@ -9,7 +9,6 @@ import type {
   RepositoryAdapter,
   RepositoryLocation,
 } from '../../../src/application/ports/repository.port';
-import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { TemplateLoaderPort } from '../../../src/application/ports/template-loader.port';
 import { RunWorkflowUseCase } from '../../../src/application/use-cases/run-workflow.use-case';
 import {
@@ -23,6 +22,7 @@ import type { ChangeContent } from '../../../src/domain/repository/change-conten
 import type { RepositoryCapabilities } from '../../../src/domain/repository/repository-capabilities';
 import type { RepositoryChange } from '../../../src/domain/repository/repository-change';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
 function snapshot(overrides: Partial<RepositorySnapshot> = {}): RepositorySnapshot {
@@ -57,8 +57,11 @@ class FakeRepository implements RepositoryAdapter {
   failCommit = false;
   changeContents: ChangeContent[] | null = null;
   getChangeContentsCalls = 0;
+  preStaged: string[] = [];
+  hasUnmerged = false;
+  inspectCallCount = 0;
 
-  constructor(snapshots: RepositorySnapshot[] = [snapshot(), snapshot()]) {
+  constructor(snapshots: RepositorySnapshot[] = [snapshot(), snapshot(), snapshot()]) {
     this.snapshots = snapshots;
   }
 
@@ -77,8 +80,16 @@ class FakeRepository implements RepositoryAdapter {
   }
 
   async inspect(): Promise<RepositorySnapshot> {
+    this.inspectCallCount += 1;
     const next = this.snapshots.shift();
-    return next ?? snapshot({ changes: [] });
+    if (next !== undefined) {
+      return this.hasUnmerged
+        ? { ...next, changes: next.changes.map((c) => ({ ...c, status: 'unmerged' })) }
+        : next;
+    }
+    // Return the last snapshot for subsequent calls
+    const last = this.snapshots[this.snapshots.length - 1];
+    return last ?? snapshot({ changes: [] });
   }
 
   async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
@@ -89,7 +100,7 @@ class FakeRepository implements RepositoryAdapter {
     return changes.map((change) => ({
       path: change.path,
       ...(change.oldPath !== undefined ? { oldPath: change.oldPath } : {}),
-      status: change.status,
+      status: this.hasUnmerged ? 'unmerged' : change.status,
       stagingState: change.stagingState,
       stagedDiff: '',
       unstagedDiff: '',
@@ -112,7 +123,7 @@ class FakeRepository implements RepositoryAdapter {
   async stagePaths(_paths: StagedPath[]): Promise<void> {}
 
   async getStagedPaths(): Promise<string[]> {
-    return [];
+    return this.preStaged;
   }
 
   async commit(message: string): Promise<CommitResult> {
@@ -331,6 +342,30 @@ describe('RunWorkflowUseCase', () => {
       name: 'InsufficientContextError',
       omittedPaths: ['a.ts'],
     });
+  });
+
+  it('rejects pre-existing staged work before AI call', async () => {
+    const repository = new FakeRepository();
+    repository.preStaged = ['pre-existing.ts'];
+    const { useCase, planner } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
+      UnsafeRepositoryStateError,
+    );
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('rejects unmerged conflicts before AI call', async () => {
+    const repository = new FakeRepository();
+    repository.hasUnmerged = true;
+    const { useCase, planner } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
+      UnsafeRepositoryStateError,
+    );
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(repository.commits).toEqual([]);
   });
 
   it('fails safely when approval is unavailable', async () => {

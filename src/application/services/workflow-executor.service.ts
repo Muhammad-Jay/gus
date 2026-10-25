@@ -2,6 +2,7 @@ import {
   ApprovalRequiredError,
   PolicyDeniedError,
   UnsafeRepositoryStateError,
+  UnsupportedRepositoryError,
 } from '../../domain/errors/domain-errors.js';
 import type {
   OperationPolicyDecision,
@@ -18,9 +19,13 @@ import type { ApprovalPort, ApprovalRequest } from '../ports/approval.port.js';
 import type { ProgressReporter } from '../ports/progress.port.js';
 import type { RepositoryAdapter } from '../ports/repository.port.js';
 
+import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import { hasRepositoryStateChanged } from '../../domain/repository/snapshot-comparison.js';
+
 export interface ExecuteWorkflowOptions {
   approval: ApprovalPort;
   progress: ProgressReporter;
+  originalSnapshot: RepositorySnapshot;
 }
 
 type Resolution = { action: 'execute' } | { action: 'skip'; reason: string; declined?: boolean };
@@ -40,13 +45,6 @@ export class WorkflowExecutor {
     policy: OperationPolicyDecision,
     options: ExecuteWorkflowOptions,
   ): Promise<WorkflowDecision> {
-    const preStaged = await this.repository.getStagedPaths();
-    if (preStaged.length > 0) {
-      throw new UnsafeRepositoryStateError(
-        `The repository already has ${preStaged.length} staged path(s). Gus will not mix pre-existing staged work into this workflow. Unstage or commit them first.`,
-      );
-    }
-
     const operations: OperationDecision[] = [];
     const needsBranch = plan.branch.strategy === 'new' && plan.branch.name !== undefined;
     const totalFiles = plan.commits.reduce((count, commit) => count + commit.files.length, 0);
@@ -127,6 +125,26 @@ export class WorkflowExecutor {
 
     if (commitResolution.action === 'skip' && commitResolution.declined === true) {
       return this.abort(operations, 'commit', 'Skipped committing.', 'Committing was declined.');
+    }
+
+    // Revalidate repository state after approvals, before first mutation
+    const currentSnapshot = await this.repository.inspect();
+    if (hasRepositoryStateChanged(options.originalSnapshot, currentSnapshot)) {
+      throw new UnsafeRepositoryStateError(
+        'The repository changed while awaiting approval. Re-run the workflow.',
+      );
+    }
+
+    // Check repository capabilities before operations
+    const capabilities = await this.repository.getCapabilities();
+    if (needsBranch && !capabilities.canCreateBranch) {
+      throw new UnsupportedRepositoryError('The repository does not support branch creation.');
+    }
+    if (!capabilities.canStagePaths) {
+      throw new UnsupportedRepositoryError('The repository does not support staging paths.');
+    }
+    if (!capabilities.canCommit) {
+      throw new UnsupportedRepositoryError('The repository does not support committing.');
     }
 
     if (needsBranch && plan.branch.name !== undefined) {
