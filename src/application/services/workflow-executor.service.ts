@@ -10,6 +10,7 @@ import type {
 } from '../../domain/policy/policy-evaluator.js';
 import type { StagedPath } from '../../domain/workflow/commit-group.js';
 import type {
+  CommitResult,
   OperationDecision,
   WorkflowDecision,
   WorkflowOperation,
@@ -46,6 +47,7 @@ export class WorkflowExecutor {
     options: ExecuteWorkflowOptions,
   ): Promise<WorkflowDecision> {
     const operations: OperationDecision[] = [];
+    const commitResults: CommitResult[] = [];
     const needsBranch = plan.branch.strategy === 'new' && plan.branch.name !== undefined;
     const totalFiles = plan.commits.reduce((count, commit) => count + commit.files.length, 0);
 
@@ -199,6 +201,11 @@ export class WorkflowExecutor {
 
       try {
         const result = await this.repository.commit(commit.message);
+        commitResults.push({
+          sha: result.sha,
+          message: result.message,
+          expectedFiles: commit.files.map((f) => f.path),
+        });
         operations.push({
           operation: 'commit',
           outcome: 'executed',
@@ -209,7 +216,7 @@ export class WorkflowExecutor {
       }
     }
 
-    return { operations, success: true };
+    return { operations, success: true, commitResults };
   }
 
   private async resolve(
@@ -251,7 +258,7 @@ export class WorkflowExecutor {
     failure: string,
   ): WorkflowDecision {
     operations.push({ operation, outcome: 'skipped', description, reason: failure });
-    return { operations, success: false, failure };
+    return { operations, success: false, failure, commitResults: [] };
   }
 
   private fail(
@@ -262,6 +269,6 @@ export class WorkflowExecutor {
   ): WorkflowDecision {
     const message = error instanceof Error ? error.message : String(error);
     operations.push({ operation, outcome: 'failed', description, reason: message });
-    return { operations, success: false, failure: description };
+    return { operations, success: false, failure: description, commitResults: [] };
   }
 }

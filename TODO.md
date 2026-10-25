@@ -17,7 +17,7 @@ reflect the total number of items per phase.
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
-| 2. Workflow Safety and Execution Correctness | In progress | 27 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
+| 2. Workflow Safety and Execution Correctness | In progress | 37 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
@@ -25,7 +25,7 @@ reflect the total number of items per phase.
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| **Total** | | **51 / 233** | |
+| **Total** | | **61 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -95,17 +95,17 @@ Priority: Critical — complete before enabling unattended commits as a normal w
 - [x] Do not introduce hunk-level splitting in this phase.
 
 ### 2.3 Improve workflow execution and verification
-
-- [ ] Keep policy evaluation, approval handling, and repository mutation separate.
-- [ ] Preserve the existing behavior where all required approvals are collected before the first mutation.
-- [ ] Confirm that `allow`, `ask`, and `deny` are enforced consistently for branch creation, staging, committing, and splitting changes.
-- [ ] Ensure a denied or rejected operation cannot lead to an unintended alternative workflow.
-- [ ] Check repository capabilities before attempting branch creation, staging, or commits.
-- [ ] Preserve the details of partial failures, including the operation that failed, the reason, completed operations, and any remaining repository changes.
-- [ ] Verify the expected branch, number of commits, commit messages, commit identifiers, and planned file assignments after execution.
-- [ ] Do not treat an empty working tree as sufficient proof that the intended workflow completed correctly.
-- [ ] Verify that no unplanned files or changes were committed.
-- [ ] Ensure a failed final verification produces a clear failure result without attempting unsafe automatic rollback.
+ 
+ - [x] Keep policy evaluation, approval handling, and repository mutation separate.
+ - [x] Preserve the existing behavior where all required approvals are collected before the first mutation.
+ - [x] Confirm that `allow`, `ask`, and `deny` are enforced consistently for branch creation, staging, committing, and splitting changes.
+ - [x] Ensure a denied or rejected operation cannot lead to an unintended alternative workflow.
+ - [x] Check repository capabilities before attempting branch creation, staging, or commits.
+ - [x] Preserve the details of partial failures, including the operation that failed, the reason, completed operations, and any remaining repository changes.
+ - [x] Verify the expected branch, number of commits, commit messages, commit identifiers, and planned file assignments after execution.
+ - [x] Do not treat an empty working tree as sufficient proof that the intended workflow completed correctly.
+ - [x] Verify that no unplanned files or changes were committed.
+ - [x] Ensure a failed final verification produces a clear failure result without attempting unsafe automatic rollback.
 
 ### 2.4 Improve process execution reliability
 

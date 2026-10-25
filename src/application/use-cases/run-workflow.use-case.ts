@@ -11,6 +11,7 @@ import type { RepositorySnapshot } from '../../domain/repository/repository-snap
 import { hasRepositoryStateChanged } from '../../domain/repository/snapshot-comparison.js';
 import type { WorkflowDecision } from '../../domain/workflow/workflow-decision.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
+import type { WorkflowVerification } from '../../domain/workflow/workflow-verification.js';
 import { toErrorMessage } from '../../shared/errors.js';
 import type { AiPlannerFactory } from '../ports/ai-planner.port.js';
 import type { ApprovalPort } from '../ports/approval.port.js';
@@ -21,6 +22,7 @@ import type { RepositoryAdapter } from '../ports/repository.port.js';
 import type { TemplateLoaderPort } from '../ports/template-loader.port.js';
 import { WorkflowExecutor } from '../services/workflow-executor.service.js';
 import { WorkflowValidator } from '../services/workflow-validator.service.js';
+import { WorkflowVerifier } from '../services/workflow-verifier.service.js';
 
 export type WorkflowStatus = 'completed' | 'failed' | 'no-changes' | 'planned';
 
@@ -32,6 +34,7 @@ export interface WorkflowRunResult {
   modelId?: string;
   decision?: WorkflowDecision;
   verification?: RepositorySnapshot;
+  workflowVerification?: WorkflowVerification;
   failure?: string;
 }
 
@@ -202,6 +205,23 @@ export class RunWorkflowUseCase {
       );
     }
 
+    // Verify the workflow execution matches the plan
+    const verifier = new WorkflowVerifier(repository);
+    const workflowVerification = await verifier.verify(plan, decision);
+
+    if (!workflowVerification.overallSuccess) {
+      const reasons: string[] = [];
+      if (!workflowVerification.branch.matches) {
+        reasons.push(workflowVerification.branch.mismatchReason ?? 'Branch mismatch');
+      }
+      for (const commit of workflowVerification.commits) {
+        if (!commit.matches && commit.mismatchReason) {
+          reasons.push(commit.mismatchReason);
+        }
+      }
+      throw new VerificationError(`Workflow verification failed: ${reasons.join('; ')}`);
+    }
+
     progress.emit({ type: 'workflow.completed', success: true });
 
     return {
@@ -212,6 +232,7 @@ export class RunWorkflowUseCase {
       modelId: resolved.modelId,
       decision,
       verification,
+      workflowVerification,
     };
   }
 }

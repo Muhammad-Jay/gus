@@ -9,8 +9,15 @@ export interface OperationDecision {
   reason?: string;
 }
 
+export interface CommitResult {
+  sha: string;
+  message: string;
+  expectedFiles: string[];
+}
+
 export interface WorkflowDecision {
   operations: OperationDecision[];
   success: boolean;
   failure?: string;
+  commitResults: CommitResult[];
 }

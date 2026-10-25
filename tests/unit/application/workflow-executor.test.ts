@@ -426,4 +426,75 @@ describe('WorkflowExecutor', () => {
     expect(repository.staged).toEqual([]);
     expect(repository.commits).toEqual([]);
   });
+
+  it('records commit results with SHA, message, and expected files', async () => {
+    const repository = new FakeRepository();
+    const decision = await createExecutor(repository).execute(
+      plan({
+        commits: [
+          { message: 'feat: one', files: [stagedPath('a.ts')] },
+          { message: 'feat: two', files: [stagedPath('b.ts')] },
+        ],
+      }),
+      policy(),
+      options('approved'),
+    );
+
+    expect(decision.success).toBe(true);
+    expect(decision.commitResults).toHaveLength(2);
+    expect(decision.commitResults[0]).toMatchObject({
+      sha: 'abcdef1234567890',
+      message: 'feat: one',
+      expectedFiles: ['a.ts'],
+    });
+    expect(decision.commitResults[1]).toMatchObject({
+      sha: 'abcdef1234567890',
+      message: 'feat: two',
+      expectedFiles: ['b.ts'],
+    });
+  });
+
+  it('records commit results with expected files including renamed files', async () => {
+    const repository = new FakeRepository();
+    const decision = await createExecutor(repository).execute(
+      plan({
+        commits: [{ message: 'feat: rename', files: [stagedPath('new.ts', 'old.ts')] }],
+      }),
+      policy(),
+      options('approved'),
+    );
+
+    expect(decision.success).toBe(true);
+    expect(decision.commitResults[0]).toMatchObject({
+      sha: 'abcdef1234567890',
+      message: 'feat: rename',
+      expectedFiles: ['new.ts'],
+    });
+  });
+
+  it('returns empty commitResults on early abort', async () => {
+    const repository = new FakeRepository();
+    const decision = await createExecutor(repository).execute(
+      plan(),
+      policy({ stage: 'ask' }),
+      options('rejected'),
+    );
+
+    expect(decision.success).toBe(false);
+    expect(decision.commitResults).toEqual([]);
+  });
+
+  it('returns empty commitResults on early failure', async () => {
+    const repository = new FakeRepository();
+    repository.failCommitMessage = 'feat: one';
+
+    const decision = await createExecutor(repository).execute(
+      plan(),
+      policy(),
+      options('approved'),
+    );
+
+    expect(decision.success).toBe(false);
+    expect(decision.commitResults).toEqual([]);
+  });
 });
