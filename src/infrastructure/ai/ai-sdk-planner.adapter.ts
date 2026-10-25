@@ -8,6 +8,7 @@ import {
   generateObject,
 } from 'ai';
 import type { AiPlanner, WorkflowPlanningInput } from '../../application/ports/ai-planner.port.js';
+import { createPromptBuilder } from '../../application/services/prompt-builder.service.js';
 import {
   AiAuthenticationError,
   AiProviderError,
@@ -15,7 +16,6 @@ import {
   InvalidAiResponseError,
 } from '../../domain/errors/domain-errors.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
-import { createWorkflowPlanningPrompt } from './prompts/workflow-planning.prompt.js';
 import { WorkflowPlanSchema } from './schemas/workflow-plan.schema.js';
 
 export interface AiSdkPlannerOptions {
@@ -58,7 +58,8 @@ export class AiSdkPlannerAdapter implements AiPlanner {
   }
 
   async plan(input: WorkflowPlanningInput): Promise<WorkflowPlan> {
-    const prompt = createWorkflowPlanningPrompt(input);
+    const promptBuilder = createPromptBuilder();
+    const prompt = promptBuilder.build(input);
 
     try {
       const { object } = await generateObject({

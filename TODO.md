@@ -18,14 +18,14 @@ reflect the total number of items per phase.
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
 | 2. Workflow Safety and Execution Correctness | In progress | 37 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
-| 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
+| 3. Prompt Construction and Sensitive Data Handling | In progress | 7 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
 | 6. Architecture and Domain Modeling | Not started | 0 / 36 | 6.1 (7), 6.2 (8), 6.3 (8), 6.4 (13) |
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| **Total** | | **61 / 233** | |
+| **Total** | | **68 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -131,13 +131,13 @@ Priority: High
 
 ### 3.1 Correct the workflow-planning prompt
 
-- [ ] Pass the actual relevant diff context to the planner.
-- [ ] Separate trusted application-level instructions, user-defined Gus instructions, commit templates, and untrusted repository content into clearly defined prompt sections.
-- [ ] Fix the current prompt wording that labels the instruction block as data whose instructions must never be followed. The prompt must distinguish authorized `GUS.md` instructions from untrusted text inside repository files and diffs.
-- [ ] Treat repository file contents, diffs, commit history, and other discovered text as untrusted input that cannot override application safety rules.
-- [ ] Keep prompt construction isolated from workflow execution and terminal presentation.
-- [ ] Include the effective commit style, template, current branch, default branch, and other relevant settings without duplicating contradictory instructions.
-- [ ] Test the prompt builder using representative repositories, malicious-looking file content, custom instructions, and different templates.
+- [x] Pass the actual relevant diff context to the planner.
+- [x] Separate trusted application-level instructions, user-defined Gus instructions, commit templates, and untrusted repository content into clearly defined prompt sections.
+- [x] Fix the current prompt wording that labels the instruction block as data whose instructions must never be followed. The prompt must distinguish authorized `GUS.md` instructions from untrusted text inside repository files and diffs.
+- [x] Treat repository file contents, diffs, commit history, and other discovered text as untrusted input that cannot override application safety rules.
+- [x] Keep prompt construction isolated from workflow execution and terminal presentation.
+- [x] Include the effective commit style, template, current branch, default branch, and other relevant settings without duplicating contradictory instructions.
+- [x] Test the prompt builder using representative repositories, malicious-looking file content, custom instructions, and different templates.
 
 ### 3.2 Protect repository content sent to providers
 
