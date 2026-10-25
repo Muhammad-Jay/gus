@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { WorkflowValidator } from '../../../src/application/services/workflow-validator.service';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
 import type { CommitTemplate } from '../../../src/domain/templates/commit-template';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
 function snapshot(paths = ['a.ts', 'b.ts']): RepositorySnapshot {
@@ -18,11 +19,15 @@ function snapshot(paths = ['a.ts', 'b.ts']): RepositorySnapshot {
   };
 }
 
+function stagedPath(path: string, oldPath?: string): StagedPath {
+  return oldPath !== undefined ? { path, oldPath } : { path };
+}
+
 function plan(overrides: Partial<WorkflowPlan> = {}): WorkflowPlan {
   return {
     summary: 'plan',
     branch: { strategy: 'current', reason: 'changes belong here' },
-    commits: [{ message: 'feat: change', files: ['a.ts', 'b.ts'] }],
+    commits: [{ message: 'feat: change', files: [stagedPath('a.ts'), stagedPath('b.ts')] }],
     warnings: [],
     ...overrides,
   };
@@ -46,8 +51,8 @@ describe('WorkflowValidator', () => {
     const result = validator.validate(
       plan({
         commits: [
-          { message: 'one', files: ['a.ts'] },
-          { message: 'two', files: ['a.ts', 'b.ts'] },
+          { message: 'one', files: [stagedPath('a.ts')] },
+          { message: 'two', files: [stagedPath('a.ts'), stagedPath('b.ts')] },
         ],
       }),
       snapshot(),
@@ -59,7 +64,7 @@ describe('WorkflowValidator', () => {
 
   it('rejects files repeated inside one commit', () => {
     const result = validator.validate(
-      plan({ commits: [{ message: 'one', files: ['a.ts', 'a.ts'] }] }),
+      plan({ commits: [{ message: 'one', files: [stagedPath('a.ts'), stagedPath('a.ts')] }] }),
       snapshot(['a.ts']),
     );
 
@@ -88,6 +93,19 @@ describe('WorkflowValidator', () => {
     expect(invalid.errors.some((e) => e.startsWith('Invalid branch name: bad name'))).toBe(true);
   });
 
+  it('accepts renamed files with oldPath in commit group', () => {
+    const result = validator.validate(
+      plan({
+        commits: [
+          { message: 'feat: rename', files: [stagedPath('src/renamed.ts', 'src/old-name.ts')] },
+        ],
+      }),
+      snapshot(['src/renamed.ts']),
+    );
+
+    expect(result.valid).toBe(true);
+  });
+
   describe('commit template validation', () => {
     const template: CommitTemplate = {
       raw: '',
@@ -98,7 +116,14 @@ describe('WorkflowValidator', () => {
 
     it('accepts messages that follow the template', () => {
       const result = validator.validate(
-        plan({ commits: [{ message: 'feat(core): add workflow', files: ['a.ts', 'b.ts'] }] }),
+        plan({
+          commits: [
+            {
+              message: 'feat(core): add workflow',
+              files: [stagedPath('a.ts'), stagedPath('b.ts')],
+            },
+          ],
+        }),
         snapshot(),
         template,
       );
@@ -108,7 +133,11 @@ describe('WorkflowValidator', () => {
 
     it('rejects messages that do not follow the template shape', () => {
       const result = validator.validate(
-        plan({ commits: [{ message: 'update everything', files: ['a.ts', 'b.ts'] }] }),
+        plan({
+          commits: [
+            { message: 'update everything', files: [stagedPath('a.ts'), stagedPath('b.ts')] },
+          ],
+        }),
         snapshot(),
         template,
       );
@@ -122,7 +151,12 @@ describe('WorkflowValidator', () => {
     it('rejects subjects over the template limit', () => {
       const result = validator.validate(
         plan({
-          commits: [{ message: `feat(core): ${'x'.repeat(80)}`, files: ['a.ts', 'b.ts'] }],
+          commits: [
+            {
+              message: `feat(core): ${'x'.repeat(80)}`,
+              files: [stagedPath('a.ts'), stagedPath('b.ts')],
+            },
+          ],
         }),
         snapshot(),
         template,

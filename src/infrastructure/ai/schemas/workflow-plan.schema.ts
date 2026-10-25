@@ -1,8 +1,13 @@
 import { z } from 'zod';
 
+export const StagedPathSchema = z.object({
+  path: z.string().min(1),
+  oldPath: z.string().optional(),
+});
+
 export const CommitGroupSchema = z.object({
   message: z.string().min(1),
-  files: z.array(z.string()).min(1),
+  files: z.array(StagedPathSchema).min(1),
   explanation: z.string().optional(),
 });
 

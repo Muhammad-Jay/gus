@@ -7,6 +7,7 @@ import type {
   OperationPolicyDecision,
   PolicyDecision,
 } from '../../domain/policy/policy-evaluator.js';
+import type { StagedPath } from '../../domain/workflow/commit-group.js';
 import type {
   OperationDecision,
   WorkflowDecision,
@@ -148,6 +149,14 @@ export class WorkflowExecutor {
     }
 
     for (const [index, commit] of plan.commits.entries()) {
+      // Check index state before staging each commit group
+      const preCommitStaged = await this.repository.getStagedPaths();
+      if (preCommitStaged.length > 0) {
+        throw new UnsafeRepositoryStateError(
+          `Unexpected staged changes detected before committing "${commit.message}". The index should be clean at this point.`,
+        );
+      }
+
       try {
         await this.repository.stagePaths(commit.files);
         operations.push({

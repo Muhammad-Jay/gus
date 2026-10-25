@@ -18,12 +18,13 @@ import type { ChangeContent } from '../../../src/domain/repository/change-conten
 import type { RepositoryCapabilities } from '../../../src/domain/repository/repository-capabilities';
 import type { RepositoryChange } from '../../../src/domain/repository/repository-change';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { WorkflowPlan } from '../../../src/domain/workflow/workflow-plan';
 
 class FakeRepository implements RepositoryAdapter {
   preStaged: string[] = [];
   createdBranches: string[] = [];
-  staged: string[][] = [];
+  staged: StagedPath[][] = [];
   commits: string[] = [];
   failCommitMessage?: string;
 
@@ -71,7 +72,7 @@ class FakeRepository implements RepositoryAdapter {
 
   async checkoutBranch(_name: string): Promise<void> {}
 
-  async stagePaths(paths: string[]): Promise<void> {
+  async stagePaths(paths: StagedPath[]): Promise<void> {
     this.staged.push(paths);
   }
 
@@ -106,13 +107,17 @@ function policy(overrides: Partial<OperationPolicyDecision> = {}): OperationPoli
   };
 }
 
+function stagedPath(path: string, oldPath?: string): StagedPath {
+  return oldPath !== undefined ? { path, oldPath } : { path };
+}
+
 function plan(overrides: Partial<WorkflowPlan> = {}): WorkflowPlan {
   return {
     summary: 'plan',
     branch: { strategy: 'current', reason: 'stay' },
     commits: [
-      { message: 'feat: one', files: ['a.ts'] },
-      { message: 'feat: two', files: ['b.ts'] },
+      { message: 'feat: one', files: [stagedPath('a.ts')] },
+      { message: 'feat: two', files: [stagedPath('b.ts')] },
     ],
     warnings: [],
     ...overrides,
@@ -141,7 +146,7 @@ describe('WorkflowExecutor', () => {
 
     expect(decision.success).toBe(true);
     expect(repository.createdBranches).toEqual(['feature/x']);
-    expect(repository.staged).toEqual([['a.ts'], ['b.ts']]);
+    expect(repository.staged).toEqual([[stagedPath('a.ts')], [stagedPath('b.ts')]]);
     expect(repository.commits).toEqual(['feat: one', 'feat: two']);
     expect(decision.operations.map((operation) => operation.outcome)).toEqual([
       'executed',
@@ -273,7 +278,7 @@ describe('WorkflowExecutor', () => {
     let prompts = 0;
 
     const decision = await createExecutor(repository).execute(
-      plan({ commits: [{ message: 'feat: one', files: ['a.ts'] }] }),
+      plan({ commits: [{ message: 'feat: one', files: [stagedPath('a.ts')] }] }),
       policy({ splitChanges: 'ask' }),
       {
         approval: {
@@ -326,5 +331,25 @@ describe('WorkflowExecutor', () => {
     expect(result.success).toBe(false);
     expect(repository.staged).toEqual([]);
     expect(repository.commits).toEqual([]);
+  });
+
+  it('throws UnsafeRepositoryStateError when unexpected staged changes appear before a commit', async () => {
+    const repository = new FakeRepository();
+    // Simulate staged changes appearing before the second commit
+    // Call #1: pre-existing check (line 42), Call #2: before 1st commit, Call #3: before 2nd commit
+    let callCount = 0;
+    const originalGetStagedPaths = repository.getStagedPaths.bind(repository);
+    repository.getStagedPaths = async () => {
+      callCount += 1;
+      if (callCount === 3) {
+        return ['unexpected.ts'];
+      }
+      return originalGetStagedPaths();
+    };
+
+    await expect(
+      createExecutor(repository).execute(plan(), policy(), options('approved')),
+    ).rejects.toBeInstanceOf(UnsafeRepositoryStateError);
+    expect(repository.commits).toEqual(['feat: one']);
   });
 });

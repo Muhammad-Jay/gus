@@ -17,15 +17,15 @@ reflect the total number of items per phase.
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
 | 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
-| 2. Workflow Safety and Execution Correctness | In progress | 12 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
+| 2. Workflow Safety and Execution Correctness | In progress | 20 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
 | 3. Prompt Construction and Sensitive Data Handling | Not started | 0 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
-| 6. Architecture and Module Boundaries | Not started | 0 / 14 | 6.1 (9), 6.2 (5) |
+| 6. Architecture and Domain Modeling | Not started | 0 / 36 | 6.1 (7), 6.2 (8), 6.3 (8), 6.4 (13) |
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| **Total** | | **36 / 233** | |
+| **Total** | | **44 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -85,14 +85,14 @@ Priority: Critical — complete before enabling unattended commits as a normal w
 
 ### 2.2 Make staging precise
 
-- [ ] Ensure repository paths are treated as literal paths rather than Git pathspec expressions where the adapter expects exact filenames.
-- [ ] Update `stagePaths` or its contract to handle renamed files, including old and new paths where required.
-- [ ] Ensure deletions and renames are staged correctly without including unrelated changes.
-- [ ] Verify that each commit contains only the paths assigned to its validated commit group.
-- [ ] Prevent one commit group from staging changes intended for another group.
-- [ ] Check the index before every commit and ensure no unexpected staged changes have appeared.
-- [ ] Refuse ambiguous mixed staged/unstaged cases until a tested isolation strategy can safely handle them.
-- [ ] Do not introduce hunk-level splitting in this phase.
+- [x] Ensure repository paths are treated as literal paths rather than Git pathspec expressions where the adapter expects exact filenames.
+- [x] Update `stagePaths` or its contract to handle renamed files, including old and new paths where required.
+- [x] Ensure deletions and renames are staged correctly without including unrelated changes.
+- [x] Verify that each commit contains only the paths assigned to its validated commit group.
+- [x] Prevent one commit group from staging changes intended for another group.
+- [x] Check the index before every commit and ensure no unexpected staged changes have appeared.
+- [x] Refuse ambiguous mixed staged/unstaged cases until a tested isolation strategy can safely handle them.
+- [x] Do not introduce hunk-level splitting in this phase.
 
 ### 2.3 Improve workflow execution and verification
 

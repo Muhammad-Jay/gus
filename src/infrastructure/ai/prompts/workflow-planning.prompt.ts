@@ -11,8 +11,8 @@ function renderAttribute(value: string): string {
   return value
     .replace(/"/g, "'")
     .replace(/[\r\n]+/g, ' ')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
 }
 
 function withTrailingNewline(value: string): string {
@@ -107,6 +107,33 @@ You must:
 4. Only use files that exist in the changes
 5. Assign every changed file to exactly one commit
 6. Never suggest running shell commands
+7. For renamed files, include BOTH "path" (the new path) and "oldPath" (the original path) in the commit's "files" array. The "changeContents" input includes "oldPath" for renamed files; use that information.
 
-Return a structured plan with branch strategy, commits with files and messages, and warnings if any.`;
+Return a structured plan with branch strategy, commits with files and messages, and warnings if any.
+
+Each commit's "files" array contains objects with:
+  - "path": the file path (required, the new path for renames)
+  - "oldPath": the original path for renamed files (optional)
+
+Example:
+{
+  "summary": "Add feature and fix bug",
+  "branch": { "strategy": "new", "name": "feature/x", "reason": "isolate changes" },
+  "commits": [
+    {
+      "message": "feat: add new feature",
+      "files": [
+        { "path": "src/feature.ts" },
+        { "path": "src/utils.ts" }
+      ]
+    },
+    {
+      "message": "fix: handle edge case",
+      "files": [
+        { "path": "src/renamed.ts", "oldPath": "src/old-name.ts" }
+      ]
+    }
+  ],
+  "warnings": []
+}`;
 }

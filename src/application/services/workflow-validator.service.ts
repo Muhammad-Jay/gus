@@ -2,6 +2,7 @@ import type { RepositorySnapshot } from '../../domain/repository/repository-snap
 import { validateCommitMessage } from '../../domain/templates/commit-message-validator.js';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
 import { describeBranchNameProblem } from '../../domain/workflow/branch-name.js';
+import type { StagedPath } from '../../domain/workflow/commit-group.js';
 import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 
 export interface ValidationResult {
@@ -31,23 +32,23 @@ export class WorkflowValidator {
 
       const seenInGroup = new Set<string>();
       for (const file of commit.files) {
-        if (!changePaths.has(file)) {
-          errors.push(`Path not found in changes: ${file}`);
+        if (!changePaths.has(file.path)) {
+          errors.push(`Path not found in changes: ${file.path}`);
         }
-        if (seenInGroup.has(file)) {
-          errors.push(`File appears more than once in commit "${commit.message}": ${file}`);
+        if (seenInGroup.has(file.path)) {
+          errors.push(`File appears more than once in commit "${commit.message}": ${file.path}`);
         }
-        seenInGroup.add(file);
+        seenInGroup.add(file.path);
       }
     }
 
     const assignedFiles = new Set<string>();
     for (const commit of plan.commits) {
       for (const file of commit.files) {
-        if (assignedFiles.has(file)) {
-          errors.push(`File assigned to multiple commits: ${file}`);
+        if (assignedFiles.has(file.path)) {
+          errors.push(`File assigned to multiple commits: ${file.path}`);
         }
-        assignedFiles.add(file);
+        assignedFiles.add(file.path);
       }
     }
 

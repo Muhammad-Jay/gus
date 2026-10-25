@@ -2,6 +2,7 @@ import type { ChangeContent } from '../../domain/repository/change-content.js';
 import type { RepositoryCapabilities } from '../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
+import type { StagedPath } from '../../domain/workflow/commit-group.js';
 
 export interface RepositoryLocation {
   rootPath: string;
@@ -22,7 +23,7 @@ export interface RepositoryAdapter {
   branchExists(name: string): Promise<boolean>;
   createBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
-  stagePaths(paths: string[]): Promise<void>;
+  stagePaths(paths: StagedPath[]): Promise<void>;
   getStagedPaths(): Promise<string[]>;
   commit(message: string): Promise<CommitResult>;
   verify(): Promise<RepositorySnapshot>;

@@ -10,6 +10,7 @@ import {
 import { ProcessRunner } from '../../../src/infrastructure/process/process-runner';
 import { GitRepositoryAdapter } from '../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 import { FakeProcessRunner, createProcessRunResult } from '../../helpers/process-runner-fake';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 
 describe('GitRepositoryAdapter', () => {
   let tempDir: string;
@@ -62,7 +63,7 @@ describe('GitRepositoryAdapter', () => {
   it('should stage and commit files', async () => {
     await writeFile(join(tempDir, 'test.txt'), 'hello');
     await adapter.detect(tempDir);
-    await adapter.stagePaths(['test.txt']);
+    await adapter.stagePaths([{ path: 'test.txt' }] as StagedPath[]);
     const result = await adapter.commit('initial commit');
     expect(result.sha).toBeTruthy();
     expect(result.message).toBe('initial commit');
@@ -235,6 +236,83 @@ describe('GitRepositoryAdapter', () => {
 
       await expect(adapter.commit('initial commit')).rejects.toBeInstanceOf(OperationFailedError);
       await expect(adapter.commit('initial commit')).rejects.toThrow('could not be started');
+    });
+  });
+
+  describe('staging with StagedPath (renames and index verification)', () => {
+    it('should stage a renamed file with oldPath and newPath', async () => {
+      await writeFile(join(tempDir, 'old-name.txt'), 'original content');
+      await execa('git', ['add', '.'], { cwd: tempDir });
+      await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+
+      // Rename the file
+      await execa('git', ['mv', 'old-name.txt', 'new-name.txt'], { cwd: tempDir });
+
+      await adapter.detect(tempDir);
+      await adapter.stagePaths([{ path: 'new-name.txt', oldPath: 'old-name.txt' }] as StagedPath[]);
+
+      const stagedPaths = await adapter.getStagedPaths();
+      expect(stagedPaths).toEqual(['new-name.txt']);
+
+      const result = await adapter.commit('rename file');
+      expect(result.message).toBe('rename file');
+    });
+
+    it('should stage multiple files including renames', async () => {
+      await writeFile(join(tempDir, 'file1.txt'), 'content1');
+      await writeFile(join(tempDir, 'old-name.txt'), 'content2');
+      await execa('git', ['add', '.'], { cwd: tempDir });
+      await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+
+      // Modify file1.txt so it has changes to stage
+      await writeFile(join(tempDir, 'file1.txt'), 'content1 modified');
+      await execa('git', ['mv', 'old-name.txt', 'renamed.txt'], { cwd: tempDir });
+      await writeFile(join(tempDir, 'file3.txt'), 'content3');
+
+      await adapter.detect(tempDir);
+      await adapter.stagePaths([
+        { path: 'file1.txt' } as StagedPath,
+        { path: 'renamed.txt', oldPath: 'old-name.txt' } as StagedPath,
+        { path: 'file3.txt' } as StagedPath,
+      ]);
+
+      const stagedPaths = await adapter.getStagedPaths();
+      expect(stagedPaths.sort()).toEqual(['file1.txt', 'file3.txt', 'renamed.txt'].sort());
+
+      const result = await adapter.commit('multiple changes');
+      expect(result.message).toBe('multiple changes');
+    });
+
+    it('should fail index verification when unexpected paths are staged', async () => {
+      await writeFile(join(tempDir, 'file1.txt'), 'content1');
+      await writeFile(join(tempDir, 'file2.txt'), 'content2');
+      await execa('git', ['add', '.'], { cwd: tempDir });
+      await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+
+      await writeFile(join(tempDir, 'file3.txt'), 'content3');
+      // Manually stage file3.txt to simulate unexpected staged changes
+      await execa('git', ['add', 'file3.txt'], { cwd: tempDir });
+
+      await adapter.detect(tempDir);
+      // Try to stage only file1.txt - should fail because file3.txt is already staged
+      await expect(adapter.stagePaths([{ path: 'file1.txt' }] as StagedPath[])).rejects.toThrow(
+        OperationFailedError,
+      );
+      await expect(adapter.stagePaths([{ path: 'file1.txt' }] as StagedPath[])).rejects.toThrow(
+        'Unexpected staged paths: file3.txt',
+      );
+    });
+
+    it('getStagedPaths returns new path for renamed file', async () => {
+      await writeFile(join(tempDir, 'old.txt'), 'content');
+      await execa('git', ['add', '.'], { cwd: tempDir });
+      await execa('git', ['commit', '-m', 'initial'], { cwd: tempDir });
+
+      await execa('git', ['mv', 'old.txt', 'new.txt'], { cwd: tempDir });
+
+      await adapter.detect(tempDir);
+      const staged = await adapter.getStagedPaths();
+      expect(staged).toEqual(['new.txt']);
     });
   });
 });

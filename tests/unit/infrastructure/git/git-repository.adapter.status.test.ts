@@ -6,6 +6,7 @@ import {
 } from '../../../../src/domain/errors/domain-errors';
 import { GitRepositoryAdapter } from '../../../../src/infrastructure/repository/providers/git-cli/git-repository.adapter';
 import { FakeProcessRunner, createProcessRunResult } from '../../../helpers/process-runner-fake';
+import type { StagedPath } from '../../../../src/domain/workflow/commit-group';
 
 const REPO_ROOT = '/tmp/gus-fake-repository';
 const GIT_DIR = `${REPO_ROOT}/.git`;
@@ -236,5 +237,111 @@ describe('GitRepositoryAdapter.branch validation and creation', () => {
     await adapter.detect(REPO_ROOT);
     await expect(adapter.branchExists('exist')).resolves.toBe(true);
     await expect(adapter.branchExists('missing')).resolves.toBe(false);
+  });
+});
+
+describe('GitRepositoryAdapter.staging with StagedPath', () => {
+  it('stagePaths stages only the new path for a renamed file (git handles old path)', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === '--literal-pathspecs' && args[1] === 'add') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached')) {
+        return createProcessRunResult({ stdout: 'src/renamed.ts\0' });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    await adapter.stagePaths([{ path: 'src/renamed.ts', oldPath: 'src/old-name.ts' }]);
+
+    const addCall = calls.find((args) => args[0] === '--literal-pathspecs' && args[1] === 'add');
+    expect(addCall).toEqual(['--literal-pathspecs', 'add', '--', 'src/renamed.ts']);
+  });
+
+  it('stagePaths throws when an extra staged file appears', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === '--literal-pathspecs' && args[1] === 'add') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached')) {
+        // Return an extra unexpected staged file
+        return createProcessRunResult({ stdout: 'a.ts\0unexpected.ts\0' });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    const addCall = await adapter.stagePaths([{ path: 'a.ts' }]).catch(() => {});
+    const callsWithAdd = calls.filter((args) => args[0] === '--literal-pathspecs' && args[1] === 'add');
+    expect(callsWithAdd[0]).toEqual(['--literal-pathspecs', 'add', '--', 'a.ts']);
+    await expect(adapter.stagePaths([{ path: 'a.ts' }])).rejects.toBeInstanceOf(OperationFailedError);
+    await expect(adapter.stagePaths([{ path: 'a.ts' }])).rejects.toThrow(
+      'Unexpected staged paths: unexpected.ts',
+    );
+  });
+
+  it('stagePaths throws when an expected path is missing', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === '--literal-pathspecs' && args[1] === 'add') {
+        return createProcessRunResult({ exitCode: 0 });
+      }
+      if (args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached')) {
+        // Return only one of the expected paths
+        return createProcessRunResult({ stdout: 'a.ts\0' });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    const addCall = await adapter.stagePaths([{ path: 'a.ts' }, { path: 'b.ts' }]).catch(() => {});
+    const callsWithAdd = calls.filter((args) => args[0] === '--literal-pathspecs' && args[1] === 'add');
+    expect(callsWithAdd[0]).toEqual(['--literal-pathspecs', 'add', '--', 'a.ts', 'b.ts']);
+    await expect(adapter.stagePaths([{ path: 'a.ts' }, { path: 'b.ts' }])).rejects.toBeInstanceOf(
+      OperationFailedError,
+    );
+    await expect(adapter.stagePaths([{ path: 'a.ts' }, { path: 'b.ts' }])).rejects.toThrow(
+      'Missing expected staged paths: b.ts',
+    );
+  });
+
+  it('getStagedPaths returns the new path for a renamed file', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached')) {
+        return createProcessRunResult({ stdout: 'src/renamed.ts\0' });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    const paths = await adapter.getStagedPaths();
+
+    expect(paths).toEqual(['src/renamed.ts']);
+  });
+
+  it('getStagedPaths calls diff with correct args', async () => {
+    const calls: string[][] = [];
+    const adapter = createAdapter((args) => {
+      calls.push(args);
+      if (args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached')) {
+        return createProcessRunResult({ stdout: 'a.ts\0b.ts\0' });
+      }
+      return createProcessRunResult();
+    });
+
+    await adapter.detect(REPO_ROOT);
+    const paths = await adapter.getStagedPaths();
+
+    const diffCall = calls.find((args) => args[0] === '--literal-pathspecs' && args[1] === 'diff' && args.includes('--cached'));
+    expect(diffCall).toEqual(['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z']);
+    expect(paths).toEqual(['a.ts', 'b.ts']);
   });
 });

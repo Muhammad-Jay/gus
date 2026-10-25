@@ -15,6 +15,7 @@ import type { ChangeContent } from '../../../../domain/repository/change-content
 import type { RepositoryCapabilities } from '../../../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../../../domain/repository/repository-snapshot.js';
+import type { StagedPath } from '../../../../domain/workflow/commit-group.js';
 import { describeBranchNameProblem } from '../../../../domain/workflow/branch-name.js';
 import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
 import { ChangeContentCollector } from './change-content.js';
@@ -181,16 +182,58 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
   }
 
-  async stagePaths(paths: string[]): Promise<void> {
+  async stagePaths(paths: StagedPath[]): Promise<void> {
     if (!this.repoRoot) {
       throw new NoRepositoryError('No repository detected');
     }
     if (paths.length === 0) {
       return;
     }
-    const result = await this.git.run(['add', '--', ...paths], this.repoRoot);
+
+    const args = ['--literal-pathspecs', 'add', '--'];
+    for (const entry of paths) {
+      args.push(entry.path);
+    }
+
+    const result = await this.git.run(args, this.repoRoot);
     if (result.exitCode !== 0) {
       throw new OperationFailedError(`Failed to stage paths: ${describeProcessFailure(result)}`);
+    }
+
+    // Verify the index matches exactly the expected paths
+    await this.verifyStagedPaths(paths);
+  }
+
+  private async verifyStagedPaths(expectedPaths: StagedPath[]): Promise<void> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+
+    const result = await this.git.run(
+      ['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z'],
+      this.repoRoot,
+    );
+    if (result.exitCode !== 0) {
+      throw new OperationFailedError(
+        `Failed to inspect staged paths: ${describeProcessFailure(result)}`,
+      );
+    }
+
+    const actualPaths = result.stdout.split('\0').filter((path) => path.length > 0);
+    const expectedPathSet = new Set(expectedPaths.map((entry) => entry.path));
+
+    const missing = [...expectedPathSet].filter((path) => !actualPaths.includes(path));
+    const unexpected = actualPaths.filter((path) => !expectedPathSet.has(path));
+
+    if (missing.length > 0 || unexpected.length > 0) {
+      const details: string[] = [];
+      if (missing.length > 0) {
+        details.push(`Missing expected staged paths: ${missing.join(', ')}`);
+      }
+      if (unexpected.length > 0) {
+        details.push(`Unexpected staged paths: ${unexpected.join(', ')}`);
+      }
+      throw new OperationFailedError(`Index verification failed: ${details.join('; ')}`);
     }
   }
 
@@ -198,7 +241,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     if (!this.repoRoot) {
       throw new NoRepositoryError('No repository detected');
     }
-    const result = await this.git.run(['diff', '--cached', '--name-only', '-z'], this.repoRoot);
+    const result = await this.git.run(
+      ['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z'],
+      this.repoRoot,
+    );
     if (result.exitCode !== 0) {
       throw new OperationFailedError(
         `Failed to inspect staged paths: ${describeProcessFailure(result)}`,

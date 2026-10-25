@@ -9,6 +9,7 @@ import type {
   RepositoryAdapter,
   RepositoryLocation,
 } from '../../../src/application/ports/repository.port';
+import type { StagedPath } from '../../../src/domain/workflow/commit-group';
 import type { TemplateLoaderPort } from '../../../src/application/ports/template-loader.port';
 import { RunWorkflowUseCase } from '../../../src/application/use-cases/run-workflow.use-case';
 import {
@@ -43,7 +44,7 @@ function plan(overrides: Partial<WorkflowPlan> = {}): WorkflowPlan {
   return {
     summary: 'plan',
     branch: { strategy: 'current', reason: 'stay' },
-    commits: [{ message: 'feat: change a', files: ['a.ts'] }],
+    commits: [{ message: 'feat: change a', files: [{ path: 'a.ts' }] }],
     warnings: [],
     ...overrides,
   };
@@ -108,7 +109,7 @@ class FakeRepository implements RepositoryAdapter {
 
   async checkoutBranch(_name: string): Promise<void> {}
 
-  async stagePaths(_paths: string[]): Promise<void> {}
+  async stagePaths(_paths: StagedPath[]): Promise<void> {}
 
   async getStagedPaths(): Promise<string[]> {
     return [];

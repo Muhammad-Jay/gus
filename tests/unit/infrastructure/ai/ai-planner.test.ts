@@ -6,7 +6,7 @@ describe('WorkflowPlanSchema', () => {
     const plan = {
       summary: 'test plan',
       branch: { strategy: 'current', reason: 'changes belong here' },
-      commits: [{ message: 'feat: add feature', files: ['test.ts'] }],
+      commits: [{ message: 'feat: add feature', files: [{ path: 'test.ts' }] }],
       warnings: [],
     };
     const result = WorkflowPlanSchema.parse(plan);
