@@ -1,6 +1,6 @@
 import {
   APICallError,
-  type LanguageModelV1,
+  type LanguageModel,
   LoadAPIKeyError,
   NoObjectGeneratedError,
   NoSuchModelError,
@@ -19,7 +19,7 @@ import type { WorkflowPlan } from '../../domain/workflow/workflow-plan.js';
 import { WorkflowPlanSchema } from './schemas/workflow-plan.schema.js';
 
 export interface AiSdkPlannerOptions {
-  model: LanguageModelV1;
+  model: LanguageModel;
   temperature?: number;
   maxRetries?: number;
 }
@@ -47,7 +47,7 @@ function hasTimeoutInChain(error: unknown): boolean {
 }
 
 export class AiSdkPlannerAdapter implements AiPlanner {
-  private readonly model: LanguageModelV1;
+  private readonly model: LanguageModel;
   private readonly temperature?: number;
   private readonly maxRetries: number;
 
@@ -83,7 +83,7 @@ export class AiSdkPlannerAdapter implements AiPlanner {
 
     if (error instanceof LoadAPIKeyError) {
       return new AiAuthenticationError(
-        `An API key is missing. Set OPENAI_API_KEY or configure an API key. (${errorMessage(error)})`,
+        `An API key is missing. Set the provider API key (e.g., GOOGLE_GENERATIVE_AI_API_KEY or OPENAI_API_KEY) or configure an API key. (${errorMessage(error)})`,
       );
     }
 

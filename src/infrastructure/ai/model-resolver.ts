@@ -1,4 +1,4 @@
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type {
   AiPlanner,
   AiPlannerFactory,
@@ -11,7 +11,7 @@ import type { AiProviderRegistry } from './ai-provider-registry.js';
 export interface ResolvedAi {
   provider: string;
   modelId: string;
-  model: LanguageModelV1;
+  model: LanguageModel;
   planner: AiPlanner;
   temperature?: number;
 }

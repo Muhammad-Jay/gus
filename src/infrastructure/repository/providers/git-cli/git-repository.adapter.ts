@@ -18,7 +18,7 @@ import type { RepositorySnapshot } from '../../../../domain/repository/repositor
 import { describeBranchNameProblem } from '../../../../domain/workflow/branch-name.js';
 import type { StagedPath } from '../../../../domain/workflow/commit-group.js';
 import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
-import { ChangeContentCollector } from './change-content.js';
+import { ChangeContentCollector, DEFAULT_EXCLUDED_PATHS } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
 import { RepositoryFingerprintCalculator } from './repository-fingerprint.js';
@@ -31,11 +31,14 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
   private changeContentCollector: ChangeContentCollector;
   private repoRoot?: string;
 
-  constructor(processRunner: ProcessRunner) {
+  constructor(processRunner: ProcessRunner, excludedPaths?: string[]) {
     this.git = new GitCommandRunner(processRunner);
     this.metadata = new GitMetadataResolver(this.git);
     this.fingerprintCalculator = new RepositoryFingerprintCalculator(this.git);
-    this.changeContentCollector = new ChangeContentCollector(this.git);
+    this.changeContentCollector = new ChangeContentCollector(
+      this.git,
+      excludedPaths ?? DEFAULT_EXCLUDED_PATHS,
+    );
   }
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {

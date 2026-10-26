@@ -28,7 +28,7 @@ describe('ConfigService', () => {
     const service = new ConfigService({ globalDir });
     const { configuration, sources } = await service.getResolved(repoRoot);
 
-    expect(configuration.ai).toEqual({ provider: 'openai', model: 'gpt-4o-mini' });
+    expect(configuration.ai).toEqual({ provider: 'google', model: 'gemini-2.5-flash' });
     expect(sources['ai.provider']).toBe('default');
     expect(sources['ai.model']).toBe('default');
     expect(sources['workflow.autoCommit']).toBe('default');

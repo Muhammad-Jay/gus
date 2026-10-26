@@ -8,6 +8,7 @@ import {
   readlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import micromatch from 'micromatch';
 import { OperationFailedError } from '../../../../domain/errors/domain-errors.js';
 import type { ChangeContent } from '../../../../domain/repository/change-content.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
@@ -19,6 +20,18 @@ export const MAX_BYTES_PER_FILE = 16 * 1024;
 export const MAX_TOTAL_BYTES = 256 * 1024;
 
 const MARKER_RESERVE_BYTES = 128;
+
+export const DEFAULT_EXCLUDED_PATHS = [
+  '.env*',
+  '*.key',
+  '*.pem',
+  '*.crt',
+  'id_rsa*',
+  '*.p12',
+  '*.pfx',
+  'secrets/*',
+  'credentials/*',
+];
 
 interface FileContent {
   text: string;
@@ -77,7 +90,10 @@ function withMarker(text: string, marker: string): string {
  * completely are reported as omitted instead of being silently dropped.
  */
 export class ChangeContentCollector {
-  constructor(private readonly git: GitCommandExecutor) {}
+  constructor(
+    private readonly git: GitCommandExecutor,
+    private readonly excludedPaths: string[] = DEFAULT_EXCLUDED_PATHS,
+  ) {}
 
   async collect(repoRoot: string, changes: RepositoryChange[]): Promise<ChangeContent[]> {
     const included = changes.slice(0, MAX_CHANGED_FILES);
@@ -92,6 +108,11 @@ export class ChangeContentCollector {
     for (const [index, change] of changes.entries()) {
       if (index >= MAX_CHANGED_FILES) {
         contents.push(this.omittedContent(change));
+        continue;
+      }
+
+      if (this.isExcluded(change.path)) {
+        contents.push(this.excludedContent(change));
         continue;
       }
 
@@ -111,6 +132,24 @@ export class ChangeContentCollector {
     }
 
     return contents;
+  }
+
+  private isExcluded(path: string): boolean {
+    return micromatch.isMatch(path, this.excludedPaths);
+  }
+
+  private excludedContent(change: RepositoryChange): ChangeContent {
+    return {
+      path: change.path,
+      ...(change.oldPath !== undefined ? { oldPath: change.oldPath } : {}),
+      status: change.status,
+      stagingState: change.stagingState,
+      stagedDiff: '',
+      unstagedDiff: '',
+      addedContent: '',
+      truncated: false,
+      contentOmitted: true,
+    };
   }
 
   private async collectChange(

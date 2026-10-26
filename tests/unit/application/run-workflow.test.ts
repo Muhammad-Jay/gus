@@ -203,7 +203,7 @@ function createUseCase(
 ) {
   const planner = plannerFactory(returnedPlan);
   const useCase = new RunWorkflowUseCase({
-    repository,
+    createRepository: () => repository,
     configService: new FakeConfigService(workflow),
     instructionLoader: {
       loadInstructions: async () => ({

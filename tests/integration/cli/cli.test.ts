@@ -77,8 +77,8 @@ describe('CLI', () => {
     const result = await runCli(['models']);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Provider: openai');
-    expect(result.stdout).toContain('Model: gpt-4o-mini (default)');
+    expect(result.stdout).toContain('Provider: google');
+    expect(result.stdout).toContain('Model: gemini-2.5-flash (default)');
   });
 
   it('gets and sets global configuration', async () => {
@@ -153,7 +153,6 @@ describe('CLI', () => {
     const result = await runCli(['run', '--dry-run']);
 
     expect(result.exitCode).toBe(4);
-    expect(result.stderr).toContain('AI authentication failed');
-    expect(result.stderr).toContain('OPENAI_API_KEY');
+    expect(result.stderr).toMatch(/AI (authentication|provider) failed/);
   });
 });

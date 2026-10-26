@@ -14,6 +14,7 @@ export interface WorkflowPlanningInput {
   commitStyle?: string;
   defaultBranch?: string;
   currentBranch: string | null;
+  redactSecrets?: boolean;
 }
 
 export interface AiPlanner {

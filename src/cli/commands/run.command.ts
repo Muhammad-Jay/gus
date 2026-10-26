@@ -53,14 +53,15 @@ function createOverrides(options: RunOptions): ConfigurationPatch | undefined {
 }
 
 export async function executeRun(options: RunOptions): Promise<void> {
-  const repository = createRepository();
   const configService = createConfigService(createOverrides(options));
-  const location = await repository.detect(process.cwd());
+  const tempRepository = createRepository();
+  const location = await tempRepository.detect(process.cwd());
   const configuration = await configService.getMerged(location?.rootPath);
   const liveUpdates = configuration.ui?.liveUpdates !== false;
+  const excludedPaths = configuration.privacy?.excludedPaths ?? [];
 
   const useCase = new RunWorkflowUseCase({
-    repository,
+    createRepository: (paths) => createRepository(paths),
     configService,
     instructionLoader: createInstructionLoader(),
     templateLoader: createTemplateLoader(),

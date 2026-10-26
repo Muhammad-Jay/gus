@@ -28,7 +28,7 @@ describe('ManageConfigUseCase', () => {
   it('returns the effective value and its source', async () => {
     const result = await useCase.get('ai.model', repoRoot);
 
-    expect(result.value).toBe('gpt-4o-mini');
+    expect(result.value).toBe('gemini-2.5-flash');
     expect(result.source).toBe('default');
   });
 

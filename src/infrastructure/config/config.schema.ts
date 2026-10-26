@@ -6,6 +6,15 @@ import {
 
 export { DEFAULT_CONFIGURATION } from '../../domain/config/configuration.js';
 
+const PrivacyConfigurationSchema = z
+  .object({
+    excludedPaths: z.array(z.string()).optional(),
+    redactSecrets: z.boolean().optional(),
+    acknowledgeDataUsage: z.boolean().optional(),
+  })
+  .strict()
+  .optional();
+
 export const ConfigurationSchema = z
   .object({
     ai: z
@@ -34,6 +43,7 @@ export const ConfigurationSchema = z
       })
       .strict()
       .optional(),
+    privacy: PrivacyConfigurationSchema,
   })
   .strict();
 

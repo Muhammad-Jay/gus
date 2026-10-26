@@ -1,3 +1,4 @@
+import type { Configuration } from '../../domain/config/configuration.js';
 import {
   InsufficientContextError,
   InvalidBranchNameError,
@@ -20,6 +21,7 @@ import type { InstructionLoader } from '../ports/instruction-loader.port.js';
 import type { ProgressReporter } from '../ports/progress.port.js';
 import type { RepositoryAdapter } from '../ports/repository.port.js';
 import type { TemplateLoaderPort } from '../ports/template-loader.port.js';
+import { SecretRedactor } from '../services/secret-redactor.service.js';
 import { WorkflowExecutor } from '../services/workflow-executor.service.js';
 import { WorkflowValidator } from '../services/workflow-validator.service.js';
 import { WorkflowVerifier } from '../services/workflow-verifier.service.js';
@@ -44,7 +46,7 @@ export interface RunWorkflowOptions {
 }
 
 export interface RunWorkflowDependencies {
-  repository: RepositoryAdapter;
+  createRepository: (excludedPaths?: string[]) => RepositoryAdapter;
   configService: ConfigurationService;
   instructionLoader: InstructionLoader;
   templateLoader: TemplateLoaderPort;
@@ -66,16 +68,27 @@ export class RunWorkflowUseCase {
   }
 
   private async run(options: RunWorkflowOptions): Promise<WorkflowRunResult> {
-    const { repository, configService, instructionLoader, templateLoader, plannerFactory } =
+    const { createRepository, configService, instructionLoader, templateLoader, plannerFactory } =
       this.dependencies;
     const { progress } = this.dependencies;
 
     progress.emit({ type: 'repository.detecting' });
-    const location = await repository.detect(options.cwd);
+    const tempRepository = createRepository();
+    const location = await tempRepository.detect(options.cwd);
     if (location === null) {
       throw new NoRepositoryError(`No Git repository found at or above ${options.cwd}.`);
     }
 
+    progress.emit({ type: 'configuration.loading' });
+    const configuration = await configService.getMerged(location.rootPath);
+
+    const excludedPaths = configuration.privacy?.excludedPaths ?? [];
+    const redactSecrets = configuration.privacy?.redactSecrets ?? true;
+    const acknowledgeDataUsage = configuration.privacy?.acknowledgeDataUsage ?? false;
+
+    const repository = createRepository(excludedPaths);
+
+    await repository.detect(location.rootPath);
     progress.emit({ type: 'repository.inspecting' });
     const snapshot = await repository.inspect();
 
@@ -95,11 +108,17 @@ export class RunWorkflowUseCase {
       );
     }
 
-    const preStaged = await repository.getStagedPaths();
-    if (preStaged.length > 0) {
-      throw new UnsafeRepositoryStateError(
-        `The repository already has ${preStaged.length} staged path(s). Gus will not mix pre-existing staged work into this workflow. Unstage or commit them first.`,
-      );
+    try {
+      const preStaged = await repository.getStagedPaths();
+      if (preStaged.length > 0) {
+        throw new UnsafeRepositoryStateError(
+          `The repository already has ${preStaged.length} staged path(s). Gus will not mix pre-existing staged work into this workflow. Unstage or commit them first.`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof UnsafeRepositoryStateError) {
+        throw error;
+      }
     }
 
     const hasConflicts = snapshot.changes.some((change) => change.status === 'unmerged');
@@ -109,14 +128,19 @@ export class RunWorkflowUseCase {
       );
     }
 
-    progress.emit({ type: 'configuration.loading' });
-    const configuration = await configService.getMerged(snapshot.rootPath);
-
     progress.emit({ type: 'instructions.loading' });
     const instructions = await instructionLoader.loadInstructions(snapshot.rootPath);
 
     progress.emit({ type: 'template.loading' });
     const template = await templateLoader.loadTemplate(snapshot.rootPath);
+
+    if (!acknowledgeDataUsage && this.isFreeTierProvider(configuration)) {
+      this.dependencies.progress.emit({
+        type: 'privacy.warning',
+        message:
+          'Repository content will be sent to a free-tier AI provider. Free-tier providers may use submitted data to improve their products. Set privacy.acknowledgeDataUsage: true in your configuration to acknowledge this.',
+      });
+    }
 
     progress.emit({ type: 'ai.planning' });
     const resolved = plannerFactory.create(configuration);
@@ -133,6 +157,7 @@ export class RunWorkflowUseCase {
         ? { defaultBranch: configuration.workflow.defaultBranch }
         : {}),
       currentBranch: snapshot.currentBranch,
+      redactSecrets,
     });
 
     progress.emit({ type: 'plan.validating' });
@@ -205,7 +230,6 @@ export class RunWorkflowUseCase {
       );
     }
 
-    // Verify the workflow execution matches the plan
     const verifier = new WorkflowVerifier(repository);
     const workflowVerification = await verifier.verify(plan, decision);
 
@@ -234,5 +258,16 @@ export class RunWorkflowUseCase {
       verification,
       workflowVerification,
     };
+  }
+
+  private isFreeTierProvider(configuration: Configuration): boolean {
+    const provider = configuration.ai?.provider ?? 'google';
+    const model = configuration.ai?.model ?? 'gemini-2.5-flash';
+    return (
+      provider === 'google' ||
+      (provider === 'openai' && model.includes('free')) ||
+      model.includes('gemini') ||
+      model.includes('free-tier')
+    );
   }
 }

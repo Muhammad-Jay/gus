@@ -1,4 +1,4 @@
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type { AiPlanner } from '../../application/ports/ai-planner.port.js';
 
 export interface CreatePlannerOptions {
@@ -9,9 +9,12 @@ export interface CreatePlannerOptions {
 export interface AiProvider {
   name: string;
   defaultModel: string;
-  createModel(modelId?: string): LanguageModelV1;
+  createModel(modelId?: string): LanguageModel;
   createPlanner(options?: CreatePlannerOptions): AiPlanner;
 }
+
+export { GoogleProvider } from './ai-provider.google.js';
+export { OpenAiProvider } from './ai-provider.openai.js';
 
 export class AiProviderRegistry {
   private providers = new Map<string, AiProvider>();

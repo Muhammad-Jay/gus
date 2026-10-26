@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type { AiPlanner } from '../../application/ports/ai-planner.port.js';
 import type { AiProvider, CreatePlannerOptions } from './ai-provider-registry.js';
 import { AiSdkPlannerAdapter } from './ai-sdk-planner.adapter.js';
@@ -26,7 +26,7 @@ export class OpenAiProvider implements AiProvider {
     this.client = createOpenAI({ apiKey: options.apiKey, baseURL: options.baseURL });
   }
 
-  createModel(modelId?: string): LanguageModelV1 {
+  createModel(modelId?: string): LanguageModel {
     return this.client(modelId ?? this.defaultModel);
   }
 

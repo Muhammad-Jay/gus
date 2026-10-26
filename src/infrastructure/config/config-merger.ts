@@ -16,6 +16,9 @@ export function mergeConfigurations(...configs: Configuration[]): Configuration 
     if (config.ui) {
       result.ui = { ...result.ui, ...config.ui };
     }
+    if (config.privacy) {
+      result.privacy = { ...result.privacy, ...config.privacy };
+    }
   }
 
   return result;
@@ -29,6 +32,7 @@ export function mergeConfigurationPatch(
     ...(base.ai ? { ai: { ...base.ai } } : {}),
     ...(base.workflow ? { workflow: { ...base.workflow } } : {}),
     ...(base.ui ? { ui: { ...base.ui } } : {}),
+    ...(base.privacy ? { privacy: { ...base.privacy } } : {}),
   };
 
   if (patch.ai) {
@@ -39,6 +43,9 @@ export function mergeConfigurationPatch(
   }
   if (patch.ui) {
     result.ui = { ...result.ui, ...patch.ui };
+  }
+  if (patch.privacy) {
+    result.privacy = { ...result.privacy, ...patch.privacy };
   }
 
   return result;

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidConfigurationError } from '../../../../src/domain/errors/domain-errors';
 import { AiProviderRegistry } from '../../../../src/infrastructure/ai/ai-provider-registry';
+import { GoogleProvider } from '../../../../src/infrastructure/ai/ai-provider.google';
 import { OpenAiProvider } from '../../../../src/infrastructure/ai/ai-provider.openai';
 import { ModelResolver } from '../../../../src/infrastructure/ai/model-resolver';
 
 function createResolver(): ModelResolver {
   const registry = new AiProviderRegistry();
+  registry.register(new GoogleProvider({ apiKey: 'test-key', defaultModel: 'gemini-2.5-flash' }));
   registry.register(new OpenAiProvider({ apiKey: 'test-key', defaultModel: 'gpt-4o-mini' }));
   return new ModelResolver(registry);
 }
@@ -13,20 +15,26 @@ function createResolver(): ModelResolver {
 describe('ModelResolver', () => {
   it('resolves the configured provider and model', () => {
     const resolved = createResolver().resolve({
-      ai: { provider: 'openai', model: 'gpt-4o', temperature: 0.2 },
+      ai: { provider: 'google', model: 'gemini-2.5-pro', temperature: 0.2 },
     });
 
-    expect(resolved.provider).toBe('openai');
-    expect(resolved.modelId).toBe('gpt-4o');
+    expect(resolved.provider).toBe('google');
+    expect(resolved.modelId).toBe('gemini-2.5-pro');
     expect(resolved.temperature).toBe(0.2);
     expect(resolved.model).toBeDefined();
     expect(resolved.planner).toBeDefined();
   });
 
   it('falls back to the provider default model', () => {
-    const resolved = createResolver().resolve({ ai: { provider: 'openai' } });
+    const resolved = createResolver().resolve({ ai: { provider: 'google' } });
 
-    expect(resolved.modelId).toBe('gpt-4o-mini');
+    expect(resolved.modelId).toBe('gemini-2.5-flash');
+  });
+
+  it('supports openai as an optional provider', () => {
+    const resolved = createResolver().resolve({ ai: { provider: 'openai', model: 'gpt-4o' } });
+    expect(resolved.provider).toBe('openai');
+    expect(resolved.modelId).toBe('gpt-4o');
   });
 
   it('rejects an unknown provider', () => {
