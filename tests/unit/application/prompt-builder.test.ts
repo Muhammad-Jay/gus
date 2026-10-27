@@ -84,6 +84,26 @@ describe('PromptBuilder', () => {
     expect(prompt).toContain('<added-content>');
   });
 
+  it('describes repository capabilities and warns about unsupported operations', () => {
+    const prompt = builder.build(
+      input([content()], {
+        capabilities: {
+          canCreateBranch: false,
+          canCheckoutBranch: true,
+          canStagePaths: true,
+          canCommit: true,
+          supportsRenameDetection: false,
+        },
+      }),
+    );
+
+    expect(prompt).toContain('[Repository capabilities]');
+    expect(prompt).toContain('Branch creation: unsupported');
+    expect(prompt).toContain('Rename detection: unsupported');
+    expect(prompt).toContain('Prefer keeping the current branch');
+    expect(prompt).toContain('Do not rely on rename detection');
+  });
+
   it('labels the repository content section as untrusted data with explicit warning', () => {
     const prompt = builder.build(input([content({ unstagedDiff: '+const value = 1;\n' })]));
 

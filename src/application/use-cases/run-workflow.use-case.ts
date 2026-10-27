@@ -5,6 +5,7 @@ import {
   NoRepositoryError,
   PlanValidationError,
   UnsafeRepositoryStateError,
+  UnsupportedRepositoryError,
   VerificationError,
 } from '../../domain/errors/domain-errors.js';
 import { PolicyEvaluator } from '../../domain/policy/policy-evaluator.js';
@@ -89,6 +90,18 @@ export class RunWorkflowUseCase {
     const repository = createRepository(excludedPaths);
 
     await repository.detect(location.rootPath);
+    const capabilities = await repository.getCapabilities();
+    if (!capabilities.canStagePaths) {
+      throw new UnsupportedRepositoryError(
+        'The repository does not support staging paths. Gus cannot prepare commits safely.',
+      );
+    }
+    if (!capabilities.canCommit) {
+      throw new UnsupportedRepositoryError(
+        'The repository does not support committing. Configure a Git author and committer identity before running Gus.',
+      );
+    }
+
     progress.emit({ type: 'repository.inspecting' });
     const snapshot = await repository.inspect();
 
@@ -157,11 +170,12 @@ export class RunWorkflowUseCase {
         ? { defaultBranch: configuration.workflow.defaultBranch }
         : {}),
       currentBranch: snapshot.currentBranch,
+      capabilities,
       redactSecrets,
     });
 
     progress.emit({ type: 'plan.validating' });
-    const validation = new WorkflowValidator().validate(plan, snapshot, template);
+    const validation = new WorkflowValidator().validate(plan, snapshot, template, capabilities);
     if (!validation.valid) {
       throw new PlanValidationError(
         `The AI workflow plan is not safe to execute: ${validation.errors.join('; ')}`,

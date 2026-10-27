@@ -1,3 +1,4 @@
+import type { RepositoryCapabilities } from '../../domain/repository/repository-capabilities.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import { validateCommitMessage } from '../../domain/templates/commit-message-validator.js';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
@@ -15,6 +16,7 @@ export class WorkflowValidator {
     plan: WorkflowPlan,
     snapshot: RepositorySnapshot,
     template?: CommitTemplate | null,
+    capabilities?: RepositoryCapabilities,
   ): ValidationResult {
     const errors: string[] = [];
     const changePaths = new Set(snapshot.changes.map((change) => change.path));
@@ -59,6 +61,14 @@ export class WorkflowValidator {
     }
 
     if (plan.branch.strategy === 'new') {
+      if (capabilities !== undefined) {
+        if (!capabilities.canCreateBranch) {
+          errors.push('The repository does not support creating branches.');
+        }
+        if (!capabilities.canCheckoutBranch) {
+          errors.push('The repository does not support checking out branches.');
+        }
+      }
       if (plan.branch.name === undefined || plan.branch.name.trim() === '') {
         errors.push('Branch name is required when creating a new branch.');
       } else {

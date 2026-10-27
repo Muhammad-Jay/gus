@@ -19,6 +19,7 @@ import { describeBranchNameProblem } from '../../../../domain/workflow/branch-na
 import type { StagedPath } from '../../../../domain/workflow/commit-group.js';
 import { type ProcessRunner, describeProcessFailure } from '../../../process/process-runner.js';
 import { ChangeContentCollector, DEFAULT_EXCLUDED_PATHS } from './change-content.js';
+import { GitCapabilityDetector } from './git-capabilities.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
 import { isGitExecutionFailure, isSuccessfulGitCommand } from './git-result.js';
@@ -30,12 +31,14 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
   private metadata: GitMetadataResolver;
   private fingerprintCalculator: RepositoryFingerprintCalculator;
   private changeContentCollector: ChangeContentCollector;
+  private capabilityDetector: GitCapabilityDetector;
   private repoRoot?: string;
 
   constructor(processRunner: ProcessRunner, excludedPaths?: string[]) {
     this.git = new GitCommandRunner(processRunner);
     this.metadata = new GitMetadataResolver(this.git);
     this.fingerprintCalculator = new RepositoryFingerprintCalculator(this.git);
+    this.capabilityDetector = new GitCapabilityDetector(this.git);
     this.changeContentCollector = new ChangeContentCollector(
       this.git,
       excludedPaths ?? DEFAULT_EXCLUDED_PATHS,
@@ -73,13 +76,10 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
   }
 
   async getCapabilities(): Promise<RepositoryCapabilities> {
-    return {
-      canCreateBranch: true,
-      canCheckoutBranch: true,
-      canStagePaths: true,
-      canCommit: true,
-      supportsRenameDetection: true,
-    };
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+    return this.capabilityDetector.detect(this.repoRoot);
   }
 
   async inspect(): Promise<RepositorySnapshot> {

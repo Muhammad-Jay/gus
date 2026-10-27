@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WorkflowValidator } from '../../../src/application/services/workflow-validator.service';
+import type { RepositoryCapabilities } from '../../../src/domain/repository/repository-capabilities';
 import type { RepositorySnapshot } from '../../../src/domain/repository/repository-snapshot';
 import type { CommitTemplate } from '../../../src/domain/templates/commit-template';
 import type { StagedPath } from '../../../src/domain/workflow/commit-group';
@@ -91,6 +92,44 @@ describe('WorkflowValidator', () => {
 
     expect(missing.errors).toContain('Branch name is required when creating a new branch.');
     expect(invalid.errors.some((e) => e.startsWith('Invalid branch name: bad name'))).toBe(true);
+  });
+
+  it('rejects a new branch when the repository cannot create branches', () => {
+    const capabilities: RepositoryCapabilities = {
+      canCreateBranch: false,
+      canCheckoutBranch: true,
+      canStagePaths: true,
+      canCommit: true,
+      supportsRenameDetection: true,
+    };
+    const result = validator.validate(
+      plan({ branch: { strategy: 'new', name: 'feature/test', reason: 'isolate' } }),
+      snapshot(),
+      null,
+      capabilities,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('The repository does not support creating branches.');
+  });
+
+  it('rejects a new branch when the repository cannot check out branches', () => {
+    const capabilities: RepositoryCapabilities = {
+      canCreateBranch: true,
+      canCheckoutBranch: false,
+      canStagePaths: true,
+      canCommit: true,
+      supportsRenameDetection: true,
+    };
+    const result = validator.validate(
+      plan({ branch: { strategy: 'new', name: 'feature/test', reason: 'isolate' } }),
+      snapshot(),
+      null,
+      capabilities,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('The repository does not support checking out branches.');
   });
 
   it('accepts renamed files with oldPath in commit group', () => {

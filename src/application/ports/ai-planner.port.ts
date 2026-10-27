@@ -1,5 +1,6 @@
 import type { Configuration } from '../../domain/config/configuration.js';
 import type { ChangeContent } from '../../domain/repository/change-content.js';
+import type { RepositoryCapabilities } from '../../domain/repository/repository-capabilities.js';
 import type { RepositoryChange } from '../../domain/repository/repository-change.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import type { CommitTemplate } from '../../domain/templates/commit-template.js';
@@ -14,6 +15,7 @@ export interface WorkflowPlanningInput {
   commitStyle?: string;
   defaultBranch?: string;
   currentBranch: string | null;
+  capabilities?: RepositoryCapabilities;
   redactSecrets?: boolean;
 }
 

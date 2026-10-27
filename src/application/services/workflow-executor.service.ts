@@ -139,8 +139,10 @@ export class WorkflowExecutor {
 
     // Check repository capabilities before operations
     const capabilities = await this.repository.getCapabilities();
-    if (needsBranch && !capabilities.canCreateBranch) {
-      throw new UnsupportedRepositoryError('The repository does not support branch creation.');
+    if (needsBranch && (!capabilities.canCreateBranch || !capabilities.canCheckoutBranch)) {
+      throw new UnsupportedRepositoryError(
+        'The repository does not support creating and checking out a branch.',
+      );
     }
     if (!capabilities.canStagePaths) {
       throw new UnsupportedRepositoryError('The repository does not support staging paths.');

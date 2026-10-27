@@ -17,6 +17,7 @@ import {
   NoRepositoryError,
   PlanValidationError,
   UnsafeRepositoryStateError,
+  UnsupportedRepositoryError,
   VerificationError,
 } from '../../../src/domain/errors/domain-errors';
 import type { ChangeContent } from '../../../src/domain/repository/change-content';
@@ -62,6 +63,13 @@ class FakeRepository implements RepositoryAdapter {
   hasUnmerged = false;
   inspectCallCount = 0;
   finalBranch: string | null = null;
+  capabilities: RepositoryCapabilities = {
+    canCreateBranch: true,
+    canCheckoutBranch: true,
+    canStagePaths: true,
+    canCommit: true,
+    supportsRenameDetection: true,
+  };
 
   constructor(snapshots: RepositorySnapshot[] = [snapshot(), snapshot(), snapshot()]) {
     this.snapshots = snapshots;
@@ -72,13 +80,7 @@ class FakeRepository implements RepositoryAdapter {
   }
 
   async getCapabilities(): Promise<RepositoryCapabilities> {
-    return {
-      canCreateBranch: true,
-      canCheckoutBranch: true,
-      canStagePaths: true,
-      canCommit: true,
-      supportsRenameDetection: true,
-    };
+    return this.capabilities;
   }
 
   async inspect(): Promise<RepositorySnapshot> {
@@ -239,6 +241,62 @@ describe('RunWorkflowUseCase', () => {
 
     expect(result.status).toBe('no-changes');
     expect(planner.plan).not.toHaveBeenCalled();
+  });
+
+  it('refuses before planning when the repository cannot stage paths', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = {
+      ...repository.capabilities,
+      canStagePaths: false,
+    };
+    const { useCase, planner } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
+      UnsupportedRepositoryError,
+    );
+    expect(planner.plan).not.toHaveBeenCalled();
+  });
+
+  it('refuses before planning when the repository cannot commit', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = {
+      ...repository.capabilities,
+      canCommit: false,
+    };
+    const { useCase, planner } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(
+      UnsupportedRepositoryError,
+    );
+    expect(planner.plan).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new-branch plan when branch creation is unsupported', async () => {
+    const repository = new FakeRepository();
+    repository.capabilities = {
+      ...repository.capabilities,
+      canCreateBranch: false,
+    };
+    const { useCase } = createUseCase(
+      repository,
+      plan({
+        branch: { strategy: 'new', name: 'feature/test', reason: 'isolate' },
+      }),
+    );
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(PlanValidationError);
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('passes repository capabilities to the planner', async () => {
+    const repository = new FakeRepository();
+    const { useCase, planner } = createUseCase(repository);
+
+    await useCase.execute({ cwd: '/repo', dryRun: true });
+
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({ capabilities: repository.capabilities }),
+    );
   });
 
   it('previews a plan in dry-run mode without mutating the repository', async () => {
