@@ -21,6 +21,7 @@ import { type ProcessRunner, describeProcessFailure } from '../../../process/pro
 import { ChangeContentCollector, DEFAULT_EXCLUDED_PATHS } from './change-content.js';
 import { GitCommandRunner } from './git-command-runner.js';
 import { GitMetadataResolver, type InProgressOperation } from './git-metadata.js';
+import { isGitExecutionFailure, isSuccessfulGitCommand } from './git-result.js';
 import { RepositoryFingerprintCalculator } from './repository-fingerprint.js';
 import { parseGitStatus } from './status-parser.js';
 
@@ -43,10 +44,27 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
 
   async detect(cwd: string): Promise<RepositoryLocation | null> {
     const result = await this.git.run(['rev-parse', '--show-toplevel'], cwd);
-    if (result.exitCode !== 0) {
-      return null;
+    if (isGitExecutionFailure(result)) {
+      throw new RepositoryInspectionError(
+        `Failed to detect a repository: ${describeProcessFailure(result)}`,
+      );
     }
+    if (result.exitCode !== 0) {
+      if (/not a git repository/i.test(result.stderr)) {
+        return null;
+      }
+      throw new RepositoryInspectionError(
+        `Failed to detect a repository: ${describeProcessFailure(result)}`,
+      );
+    }
+
     const rootPath = result.stdout.trim();
+    if (rootPath.length === 0) {
+      throw new RepositoryInspectionError(
+        'Failed to detect a repository: Git returned an empty root path',
+      );
+    }
+
     this.repoRoot = rootPath;
     return {
       rootPath,
@@ -77,27 +95,14 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       );
     }
 
-    // Get current branch
-    const branchResult = await this.git.run(['branch', '--show-current'], this.repoRoot);
-    let currentBranch: string | null = null;
-    let isDetached = false;
-
-    if (branchResult.exitCode === 0 && branchResult.stdout.trim()) {
-      currentBranch = branchResult.stdout.trim();
-    } else {
-      // Check if detached
-      const headResult = await this.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], this.repoRoot);
-      if (headResult.stdout.trim() === 'HEAD') {
-        isDetached = true;
-      }
-    }
+    const { currentBranch, isDetached } = await this.inspectBranch();
 
     // Get status
     const statusResult = await this.git.run(
       ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
       this.repoRoot,
     );
-    if (statusResult.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(statusResult)) {
       throw new RepositoryInspectionError(
         `Failed to inspect repository status: ${describeProcessFailure(statusResult)}`,
       );
@@ -118,6 +123,42 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     };
   }
 
+  private async inspectBranch(): Promise<{
+    currentBranch: string | null;
+    isDetached: boolean;
+  }> {
+    if (!this.repoRoot) {
+      throw new NoRepositoryError('No repository detected');
+    }
+
+    const branchResult = await this.git.run(['branch', '--show-current'], this.repoRoot);
+    if (!isGitExecutionFailure(branchResult) && branchResult.exitCode === 0) {
+      const branch = branchResult.stdout.trim();
+      if (branch.length > 0) {
+        return { currentBranch: branch, isDetached: false };
+      }
+    }
+
+    const headResult = await this.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], this.repoRoot);
+    if (!isSuccessfulGitCommand(headResult)) {
+      throw new RepositoryInspectionError(
+        `Failed to determine the current branch: ${describeProcessFailure(headResult)}`,
+      );
+    }
+
+    const head = headResult.stdout.trim();
+    if (head === 'HEAD') {
+      return { currentBranch: null, isDetached: true };
+    }
+    if (head.length > 0) {
+      return { currentBranch: head, isDetached: false };
+    }
+
+    throw new RepositoryInspectionError(
+      'Failed to determine the current branch: Git returned an empty branch name',
+    );
+  }
+
   async getChangeContents(changes: RepositoryChange[]): Promise<ChangeContent[]> {
     if (!this.repoRoot) {
       throw new NoRepositoryError('No repository detected');
@@ -136,7 +177,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     const result = await this.git.run(['check-ref-format', '--branch', name], this.repoRoot);
-    if (result.exitCode === null) {
+    if (isGitExecutionFailure(result)) {
       throw new RepositoryInspectionError(
         `Failed to validate branch name "${name}": ${describeProcessFailure(result)}`,
       );
@@ -167,7 +208,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       );
     }
     const result = await this.git.run(['checkout', '-b', name], this.repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(`Failed to create branch: ${describeProcessFailure(result)}`);
     }
   }
@@ -178,7 +219,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
     await this.validateBranchName(name);
     const result = await this.git.run(['checkout', name], this.repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to checkout branch: ${describeProcessFailure(result)}`,
       );
@@ -199,7 +240,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
     }
 
     const result = await this.git.run(args, this.repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(`Failed to stage paths: ${describeProcessFailure(result)}`);
     }
 
@@ -216,7 +257,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       ['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z'],
       this.repoRoot,
     );
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to inspect staged paths: ${describeProcessFailure(result)}`,
       );
@@ -248,7 +289,7 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       ['--literal-pathspecs', 'diff', '--cached', '--name-only', '-z'],
       this.repoRoot,
     );
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to inspect staged paths: ${describeProcessFailure(result)}`,
       );
@@ -261,11 +302,11 @@ export class GitRepositoryAdapter implements RepositoryAdapter {
       throw new NoRepositoryError('No repository detected');
     }
     const result = await this.git.run(['commit', '-m', message], this.repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(`Failed to commit: ${describeProcessFailure(result)}`);
     }
     const shaResult = await this.git.run(['rev-parse', 'HEAD'], this.repoRoot);
-    if (shaResult.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(shaResult)) {
       throw new OperationFailedError(
         `Failed to read the commit SHA: ${describeProcessFailure(shaResult)}`,
       );

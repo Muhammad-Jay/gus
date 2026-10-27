@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { OperationFailedError } from '../../../../domain/errors/domain-errors.js';
 import { describeProcessFailure } from '../../../process/process-runner.js';
 import type { GitCommandExecutor } from './git-metadata.js';
+import { isGitExecutionFailure, isSuccessfulGitCommand } from './git-result.js';
 
 export interface RepositoryFingerprints {
   headSha: string | null;
@@ -27,20 +28,27 @@ export class RepositoryFingerprintCalculator {
   }
 
   private async computeHeadSha(repoRoot: string): Promise<string | null> {
-    const result = await this.git.run(['rev-parse', 'HEAD'], repoRoot);
-    if (result.exitCode !== 0) {
+    const result = await this.git.run(['rev-parse', '--verify', '--quiet', 'HEAD'], repoRoot);
+    if (isGitExecutionFailure(result)) {
+      throw new OperationFailedError(`Failed to read HEAD: ${describeProcessFailure(result)}`);
+    }
+    if (result.exitCode === 1) {
       return null;
     }
+    if (!isSuccessfulGitCommand(result)) {
+      throw new OperationFailedError(`Failed to read HEAD: ${describeProcessFailure(result)}`);
+    }
+
     const sha = result.stdout.trim();
     if (sha.length === 0) {
-      return null;
+      throw new OperationFailedError('Failed to read HEAD: Git returned an empty SHA');
     }
     return sha;
   }
 
   private async computeIndexFingerprint(repoRoot: string): Promise<string> {
     const result = await this.git.run(['ls-files', '--stage', '-z'], repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to hash repository index: ${describeProcessFailure(result)}`,
       );
@@ -50,7 +58,7 @@ export class RepositoryFingerprintCalculator {
 
   private async computeWorktreeFingerprint(repoRoot: string): Promise<string> {
     const diffResult = await this.git.run(['diff', '--no-color', '-z'], repoRoot);
-    if (diffResult.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(diffResult)) {
       throw new OperationFailedError(
         `Failed to hash worktree diff: ${describeProcessFailure(diffResult)}`,
       );
@@ -60,7 +68,7 @@ export class RepositoryFingerprintCalculator {
       ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
       repoRoot,
     );
-    if (statusResult.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(statusResult)) {
       throw new OperationFailedError(
         `Failed to inspect worktree status for fingerprinting: ${describeProcessFailure(statusResult)}`,
       );

@@ -147,7 +147,7 @@ describe('GitMetadataResolver', () => {
       await expect(resolver.branchExists(REPO_ROOT, 'feature/x')).resolves.toBe(false);
     });
 
-    it('should return false instead of throwing for unexpected failures', async () => {
+    it('should throw for unexpected failures instead of treating them as a missing branch', async () => {
       const git = new FakeGitCommandExecutor(() => ({
         stdout: '',
         stderr: 'fatal: not a git repository',
@@ -155,7 +155,9 @@ describe('GitMetadataResolver', () => {
       }));
       const resolver = new GitMetadataResolver(git);
 
-      await expect(resolver.branchExists(REPO_ROOT, 'feature/x')).resolves.toBe(false);
+      await expect(resolver.branchExists(REPO_ROOT, 'feature/x')).rejects.toBeInstanceOf(
+        RepositoryInspectionError,
+      );
     });
 
     it('should throw when the branch check could not be executed', async () => {

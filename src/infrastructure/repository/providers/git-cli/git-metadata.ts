@@ -5,6 +5,7 @@ import {
   type ProcessFailureDetails,
   describeProcessFailure,
 } from '../../../process/process-runner.js';
+import { isGitExecutionFailure, isSuccessfulGitCommand } from './git-result.js';
 
 export interface GitCommandResult extends ProcessFailureDetails {
   stdout: string;
@@ -49,7 +50,7 @@ export class GitMetadataResolver {
 
   async resolveGitDir(repoRoot: string): Promise<string> {
     const result = await this.git.run(['rev-parse', '--absolute-git-dir'], repoRoot);
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new RepositoryInspectionError(
         `Failed to resolve Git directory: ${describeProcessFailure(result)}`,
       );
@@ -68,12 +69,25 @@ export class GitMetadataResolver {
       ['rev-parse', '--path-format=absolute', '--git-path', name],
       repoRoot,
     );
+    if (isGitExecutionFailure(result)) {
+      throw new RepositoryInspectionError(
+        `Failed to resolve Git path "${name}": ${describeProcessFailure(result)}`,
+      );
+    }
+
     if (result.exitCode === 0) {
       const path = result.stdout.trim();
       if (path) {
         return path;
       }
     }
+
+    if (result.exitCode !== 0 && !isUnsupportedGitPathCommand(result)) {
+      throw new RepositoryInspectionError(
+        `Failed to resolve Git path "${name}": ${describeProcessFailure(result)}`,
+      );
+    }
+
     const gitDir = await this.resolveGitDir(repoRoot);
     return join(gitDir, name);
   }
@@ -102,11 +116,23 @@ export class GitMetadataResolver {
       ['show-ref', '--verify', '--quiet', `refs/heads/${branchName}`],
       repoRoot,
     );
-    if (result.exitCode === null) {
+    if (isGitExecutionFailure(result)) {
       throw new RepositoryInspectionError(
         `Failed to check whether branch "${branchName}" exists: ${describeProcessFailure(result)}`,
       );
     }
-    return result.exitCode === 0;
+    if (result.exitCode === 0) {
+      return true;
+    }
+    if (result.exitCode === 1) {
+      return false;
+    }
+    throw new RepositoryInspectionError(
+      `Failed to check whether branch "${branchName}" exists: ${describeProcessFailure(result)}`,
+    );
   }
+}
+
+function isUnsupportedGitPathCommand(result: GitCommandResult): boolean {
+  return result.exitCode === 129 || /unknown (option|switch|flag)/i.test(result.stderr);
 }

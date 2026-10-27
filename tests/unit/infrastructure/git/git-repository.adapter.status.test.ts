@@ -34,6 +34,12 @@ describe('GitRepositoryAdapter.inspect', () => {
       if (args[0] === 'status') {
         return createProcessRunResult({ stdout: '?? untracked.ts\0' });
       }
+      if (args[0] === 'branch' && args[1] === '--show-current') {
+        return createProcessRunResult({ stdout: 'main\n' });
+      }
+      if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === '--quiet') {
+        return createProcessRunResult({ stdout: 'abc123\n' });
+      }
       return createProcessRunResult();
     });
 
@@ -55,6 +61,9 @@ describe('GitRepositoryAdapter.inspect', () => {
           exitCode: 128,
         });
       }
+      if (args[0] === 'branch' && args[1] === '--show-current') {
+        return createProcessRunResult({ stdout: 'main\n' });
+      }
       return createProcessRunResult();
     });
 
@@ -72,6 +81,9 @@ describe('GitRepositoryAdapter.inspect', () => {
           spawnFailed: true,
           failureReason: 'Command failed with ENOENT: git',
         });
+      }
+      if (args[0] === 'branch' && args[1] === '--show-current') {
+        return createProcessRunResult({ stdout: 'main\n' });
       }
       return createProcessRunResult();
     });

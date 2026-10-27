@@ -14,6 +14,7 @@ import type { ChangeContent } from '../../../../domain/repository/change-content
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import { describeProcessFailure } from '../../../process/process-runner.js';
 import type { GitCommandExecutor } from './git-metadata.js';
+import { isSuccessfulGitCommand } from './git-result.js';
 
 export const MAX_CHANGED_FILES = 500;
 export const MAX_BYTES_PER_FILE = 16 * 1024;
@@ -205,7 +206,7 @@ export class ChangeContentCollector {
       ['--literal-pathspecs', 'diff', '--cached', '--no-color', '--', ...pathspecs],
       repoRoot,
     );
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to read the staged diff for "${change.path}": ${describeProcessFailure(result)}`,
       );
@@ -218,7 +219,7 @@ export class ChangeContentCollector {
       ['--literal-pathspecs', 'diff', '--no-color', '--', change.path],
       repoRoot,
     );
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to read the unstaged diff for "${change.path}": ${describeProcessFailure(result)}`,
       );
@@ -235,7 +236,7 @@ export class ChangeContentCollector {
       ['--literal-pathspecs', 'ls-files', '-z', '--', ...paths],
       repoRoot,
     );
-    if (result.exitCode !== 0) {
+    if (!isSuccessfulGitCommand(result)) {
       throw new OperationFailedError(
         `Failed to list tracked files: ${describeProcessFailure(result)}`,
       );
