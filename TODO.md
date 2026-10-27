@@ -16,16 +16,16 @@ reflect the total number of items per phase.
 
 | Phase | Status | Completed | Items |
 | --- | --- | --- | --- |
-| 1. Repository State and Change Analysis | In progress | 24 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
+| 1. Repository State and Change Analysis | Complete | 26 / 26 | 1.1 (7), 1.2 (7), 1.3 (6), 1.4 (6) |
 | 2. Workflow Safety and Execution Correctness | In progress | 37 / 37 | 2.1 (7), 2.2 (8), 2.3 (10), 2.4 (7), 2.5 (5) |
-| 3. Prompt Construction and Sensitive Data Handling | In progress | 7 / 15 | 3.1 (7), 3.2 (8) |
+| 3. Prompt Construction and Sensitive Data Handling | Complete | 15 / 15 | 3.1 (7), 3.2 (8) |
 | 4. AI Provider Integration and Google Gemini | Not started | 0 / 31 | 4.1 (7), 4.2 (11), 4.3 (8), 4.4 (5) |
 | 5. Configuration, Instructions, and Templates | Not started | 0 / 29 | 5.1 (7), 5.2 (6), 5.3 (11), 5.4 (5) |
 | 6. Architecture and Domain Modeling | Not started | 0 / 36 | 6.1 (7), 6.2 (8), 6.3 (8), 6.4 (13) |
 | 7. Testing and Verification | Not started | 0 / 40 | 7.1 (8), 7.2 (8), 7.3 (9), 7.4 (7), 7.5 (8) |
 | 8. CI, Documentation, and Release Preparation | Not started | 0 / 19 | 8.1 (5), 8.2 (7), 8.3 (7) |
 | 9. Deferred Work | Deferred | 0 / 7 | Intentionally out of scope until the workflow is reliable |
-| **Total** | | **68 / 233** | |
+| **Total** | | **78 / 233** | |
 
 ## Phase 1: Repository State and Change Analysis
 
@@ -67,7 +67,7 @@ Priority: Critical
 - [x] Detect relevant in-progress operations, including merge, rebase, cherry-pick, revert, and sequencer states where applicable.
 - [x] Verify behavior with Git worktrees and repositories with non-standard Git directory layouts.
 - [x] Ensure that unsupported or ambiguous states result in a clear refusal rather than a partially informed workflow.
-- [ ] Use the repository capability interface to determine whether an operation is supported before planning or executing it.
+- [x] Use the repository capability interface to determine whether an operation is supported before planning or executing it.
 
 ## Phase 2: Workflow Safety and Execution Correctness
 
@@ -141,14 +141,14 @@ Priority: High
 
 ### 3.2 Protect repository content sent to providers
 
-- [ ] Add configurable file exclusions for sensitive or irrelevant paths.
-- [ ] Avoid transmitting environment files, API keys, private credentials, and other obvious secrets.
-- [ ] Implement appropriate secret-redaction checks before provider requests.
-- [ ] Apply limits to the number and size of diffs sent to the model.
-- [ ] Provide a clear warning and documentation about what repository content is sent to the selected provider.
-- [ ] Document the data-use terms of free-tier providers. In particular, Google's Gemini Developer API free tier states that submitted content may be used to improve Google products.
-- [ ] Provide an explicit, understandable configuration or first-use acknowledgement for the privacy implications of sending repository content to a free-tier provider.
-- [ ] Never log secret values or unnecessary repository content.
+- [x] Add configurable file exclusions for sensitive or irrelevant paths.
+- [x] Avoid transmitting environment files, API keys, private credentials, and other obvious secrets.
+- [x] Implement appropriate secret-redaction checks before provider requests.
+- [x] Apply limits to the number and size of diffs sent to the model.
+- [x] Provide a clear warning and documentation about what repository content is sent to the selected provider.
+- [x] Document the data-use terms of free-tier providers. In particular, Google's Gemini Developer API free tier states that submitted content may be used to improve Google products.
+- [x] Provide an explicit, understandable configuration or first-use acknowledgement for the privacy implications of sending repository content to a free-tier provider.
+- [x] Never log secret values or unnecessary repository content.
 
 Reference: [Gemini API pricing and data-use terms](https://ai.google.dev/gemini-api/docs/pricing?utm_source=chatgpt.com).
 
