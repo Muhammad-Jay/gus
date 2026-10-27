@@ -59,23 +59,17 @@ function renderFileContent(content: ChangeContent): string {
   return `<file ${attributes.join(' ')}>\n${parts.join('\n')}\n</file>`;
 }
 
-function renderRepositoryContent(contents: ChangeContent[], redactSecrets: boolean): string {
+function renderRepositoryContent(contents: ChangeContent[]): string {
   const files = contents.map(renderFileContent).filter((file) => file.length > 0);
   if (files.length === 0) {
     return '';
   }
 
-  let content = `<repository-content>
+  return `<repository-content>
 ${UNTRUSTED_CONTENT_WARNING}
 
 ${files.join('\n\n')}
 </repository-content>`;
-
-  if (redactSecrets) {
-    content = SECRET_REDACTOR.redact(content);
-  }
-
-  return content;
 }
 
 const APPLICATION_INSTRUCTIONS = `You are an expert at organizing git repository changes into clean, logical commits.
@@ -125,10 +119,7 @@ export function createPromptBuilder(): PromptBuilder {
   return {
     build(input: WorkflowPlanningInput): string {
       const template = input.template?.templateBlock?.trim();
-      const repositoryContent = renderRepositoryContent(
-        input.changeContents,
-        input.redactSecrets ?? true,
-      );
+      const repositoryContent = renderRepositoryContent(input.changeContents);
 
       const sections: string[] = [];
 
@@ -200,7 +191,8 @@ export function createPromptBuilder(): PromptBuilder {
       sections.push(JSON.stringify(input.changes, null, 2));
       sections.push('</changes>');
 
-      return sections.join('\n');
+      const prompt = sections.join('\n');
+      return (input.redactSecrets ?? true) ? SECRET_REDACTOR.redact(prompt) : prompt;
     },
   };
 }

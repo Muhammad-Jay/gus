@@ -248,6 +248,28 @@ describe('PromptBuilder', () => {
     expect(untrustedHeaderIndex).toBeLessThan(maliciousIndex);
   });
 
+  it('redacts secrets from the entire prompt by default', () => {
+    const prompt = builder.build(
+      input([content({ addedContent: 'password = "repositorySecretValue"\n' })], {
+        instructions: 'token: instructionSecretValue',
+      }),
+    );
+
+    expect(prompt).not.toContain('repositorySecretValue');
+    expect(prompt).not.toContain('instructionSecretValue');
+    expect(prompt).toContain('***REDACTED***');
+  });
+
+  it('keeps secrets when redaction is explicitly disabled', () => {
+    const prompt = builder.build(
+      input([content({ addedContent: 'password = "repositorySecretValue"\n' })], {
+        redactSecrets: false,
+      }),
+    );
+
+    expect(prompt).toContain('repositorySecretValue');
+  });
+
   it('includes core application instructions in the AUTHORIZED section', () => {
     const prompt = builder.build(input([]));
 

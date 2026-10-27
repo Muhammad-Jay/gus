@@ -28,6 +28,10 @@ export class ClackProgressReporter implements ProgressReporter {
       case 'commit.creating':
         this.show(`Creating commit ${event.index}/${event.total}`);
         return;
+      case 'privacy.warning':
+        this.stop();
+        p.log.warn(event.message);
+        return;
       case 'approval.required':
         this.stop();
         return;
@@ -72,5 +76,13 @@ export class ClackProgressReporter implements ProgressReporter {
 
     this.spinner.stop(message);
     this.active = false;
+  }
+}
+
+export class StderrProgressReporter implements ProgressReporter {
+  emit(event: WorkflowProgressEvent): void {
+    if (event.type === 'privacy.warning') {
+      console.error(`Warning: ${event.message}`);
+    }
   }
 }

@@ -23,7 +23,6 @@ import type { InstructionLoader } from '../ports/instruction-loader.port.js';
 import type { ProgressReporter } from '../ports/progress.port.js';
 import type { RepositoryAdapter } from '../ports/repository.port.js';
 import type { TemplateLoaderPort } from '../ports/template-loader.port.js';
-import { SecretRedactor } from '../services/secret-redactor.service.js';
 import { WorkflowExecutor } from '../services/workflow-executor.service.js';
 import { WorkflowValidator } from '../services/workflow-validator.service.js';
 import { WorkflowVerifier } from '../services/workflow-verifier.service.js';

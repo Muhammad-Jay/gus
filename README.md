@@ -78,6 +78,9 @@ Supported keys:
 | `workflow.defaultBranch` | string | unset |
 | `ui.liveUpdates` | `true`, `false` | unset |
 | `ui.color` | `auto`, `always`, `never` | unset |
+| `privacy.excludedPaths` | comma-separated globs or JSON string array | sensitive built-ins |
+| `privacy.redactSecrets` | `true`, `false` | `true` |
+| `privacy.acknowledgeDataUsage` | `true`, `false` | `false` |
 
 `ui.liveUpdates: false` disables live progress output. `ui.color` is accepted but reserved for a
 future release; color output currently follows the terminal environment (`NO_COLOR`,
@@ -88,6 +91,34 @@ Policy values:
 - `allow`: perform the operation without prompting.
 - `ask`: request approval before performing the operation.
 - `deny`: do not perform the operation.
+
+## Privacy and data handling
+
+Gus sends the inspected diffs, added file content, instructions, and metadata for changed files to
+the configured AI provider. Files matching `privacy.excludedPaths` are never read, sent to the
+provider, or committed. They stay untouched in the working tree and are reported in the workflow
+output, so the final repository may still contain those local changes.
+
+Built-in exclusions cover common sensitive paths such as `**/.env*`, `**/*.key`, `**/*.pem`,
+`**/id_rsa*`, `**/secrets/**`, and `**/credentials/**`. User-defined exclusions extend the built-in
+list; they cannot remove it.
+
+```bash
+# Add project-specific exclusions alongside the built-in list
+gus config set privacy.excludedPaths "generated/**, **/*.local.json"
+
+# Built-in exclusions are always retained
+```
+
+With `privacy.redactSecrets: true` (the default), Gus redacts common credentials and tokens across the
+entire prompt, including instructions, templates, metadata, diffs, and file content. Disable it only
+if you understand that provider-bound content is no longer filtered.
+
+When the configured provider appears to be free-tier, Gus warns that submitted data may be used to
+improve the provider's products. For example, the Google Gemini Developer API free tier states that
+submitted content may be used to improve Google products. Set
+`privacy.acknowledgeDataUsage: true` after reviewing your provider's terms to suppress that warning.
+Approval prompts are separate from the data-usage acknowledgement.
 
 ## Instructions and templates
 

@@ -151,6 +151,12 @@ Large diffs should be bounded and handled deliberately. If important changes can
 
 Repository content and diff text must be treated as data, not as instructions that can override Gus's system rules or application policies.
 
+Sensitive paths configured through `privacy.excludedPaths` must not be read, sent to the provider, or committed. Built-in exclusions are always retained and user values extend them. Excluded working-tree changes are reported and left untouched, so a successful workflow does not guarantee that the working tree is completely clean.
+
+When `privacy.redactSecrets` is enabled, apply redaction to the complete provider payload, including instructions, templates, metadata, diffs, and added content. Never rely on redaction as the only protection: excluded paths and minimal context remain the primary safeguards.
+
+Before sending free-tier provider data, warn that submitted content may be used to improve the provider's products. The warning is informational and is suppressed only by `privacy.acknowledgeDataUsage: true`.
+
 ### Step 5: Generate a workflow plan
 
 The AI planner should produce structured data describing the proposed operations.
@@ -768,6 +774,11 @@ A configuration file may look like this:
   "ui": {
     "liveUpdates": true,
     "color": "auto"
+  },
+  "privacy": {
+    "excludedPaths": ["generated/**", "**/*.local.json"],
+    "redactSecrets": true,
+    "acknowledgeDataUsage": false
   }
 }
 ```
@@ -812,6 +823,14 @@ Do not store API keys in `GUS.md`, `TEMPLATE.md`, checked-in project configurati
 Use provider-supported environment variables or an appropriate credential mechanism. Do not display secret values during configuration inspection.
 
 Model selection and credential resolution must remain separate. Changing the model should not require editing the workflow implementation.
+
+#### Provider data handling
+
+`privacy.excludedPaths` uses glob patterns and extends a built-in list of sensitive files, including nested `.env`, private-key, secrets, and credentials paths. Built-in exclusions cannot be removed through configuration. Excluded paths are filtered before content collection and planning, never sent to the provider, and never staged or committed.
+
+`privacy.redactSecrets` defaults to `true` and applies secret-pattern redaction to the entire provider prompt. Redaction complements, but does not replace, path exclusion and bounded context collection.
+
+`privacy.acknowledgeDataUsage` defaults to `false`. For providers that may use submitted data to improve their products, Gus must emit a visible warning on every non-acknowledged free-tier run. The warning must be shown in both interactive and non-interactive modes. For example, the Google Gemini Developer API free tier states that submitted content may be used to improve Google products. Document equivalent terms for other providers as they are added. Setting the flag acknowledges the provider's terms and suppresses the warning; it does not approve repository operations.
 
 ## 9. GUS.md Instruction Files
 

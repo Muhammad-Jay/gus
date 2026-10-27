@@ -3,7 +3,10 @@ import type { AiPlanner, AiPlannerFactory } from '../../../src/application/ports
 import type { ApprovalOutcome, ApprovalPort } from '../../../src/application/ports/approval.port';
 import type { ConfigurationService } from '../../../src/application/ports/configuration.port';
 import type { InstructionLoader } from '../../../src/application/ports/instruction-loader.port';
-import { NullProgressReporter } from '../../../src/application/ports/progress.port';
+import {
+  NullProgressReporter,
+  type ProgressReporter,
+} from '../../../src/application/ports/progress.port';
 import type {
   CommitResult,
   RepositoryAdapter,
@@ -203,6 +206,7 @@ function createUseCase(
   returnedPlan: WorkflowPlan = plan(),
   outcome: ApprovalOutcome = 'approved',
   workflow: Record<string, 'allow' | 'ask' | 'deny'> = {},
+  progress: ProgressReporter = new NullProgressReporter(),
 ) {
   const planner = plannerFactory(returnedPlan);
   const useCase = new RunWorkflowUseCase({
@@ -219,7 +223,7 @@ function createUseCase(
     templateLoader: { loadTemplate: async () => null } satisfies TemplateLoaderPort,
     plannerFactory: planner.factory,
     approval: { requestApproval: async () => outcome } satisfies ApprovalPort,
-    progress: new NullProgressReporter(),
+    progress,
   });
 
   return { useCase, planner };
@@ -328,10 +332,24 @@ describe('RunWorkflowUseCase', () => {
     repository.verifySnapshot = snapshot({
       changes: [excluded],
     });
-    const { useCase, planner } = createUseCase(repository);
+    const events: Parameters<ProgressReporter['emit']>[0][] = [];
+    const { useCase, planner } = createUseCase(
+      repository,
+      plan(),
+      'approved',
+      {},
+      {
+        emit: (event) => events.push(event),
+      },
+    );
 
     const result = await useCase.execute({ cwd: '/repo' });
 
+    expect(
+      events.some(
+        (event) => event.type === 'privacy.warning' && event.message.includes('.env.local'),
+      ),
+    ).toBe(true);
     expect(planner.plan).toHaveBeenCalledWith(
       expect.objectContaining({
         changes: [included],

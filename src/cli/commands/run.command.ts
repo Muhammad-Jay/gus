@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import type { ApprovalPort } from '../../application/ports/approval.port.js';
 import type { ProgressReporter } from '../../application/ports/progress.port.js';
-import { NullProgressReporter } from '../../application/ports/progress.port.js';
 import { RunWorkflowUseCase } from '../../application/use-cases/run-workflow.use-case.js';
 import type { ConfigurationPatch } from '../../domain/config/configuration.js';
 import { ExitCode } from '../../shared/exit-codes.js';
@@ -13,7 +12,7 @@ import {
   createTemplateLoader,
 } from '../composition.js';
 import { PlanView } from '../ui/plan-view.js';
-import { ClackProgressReporter } from '../ui/progress.js';
+import { ClackProgressReporter, StderrProgressReporter } from '../ui/progress.js';
 import { AutoApproval, ClackApproval, NonInteractiveApproval } from '../ui/prompts.js';
 import { ResultView } from '../ui/result-view.js';
 
@@ -36,7 +35,10 @@ function createApproval(options: RunOptions): ApprovalPort {
 }
 
 function createProgress(liveUpdates: boolean): ProgressReporter {
-  return isInteractive() && liveUpdates ? new ClackProgressReporter() : new NullProgressReporter();
+  if (isInteractive() && liveUpdates) {
+    return new ClackProgressReporter();
+  }
+  return new StderrProgressReporter();
 }
 
 function createOverrides(options: RunOptions): ConfigurationPatch | undefined {
