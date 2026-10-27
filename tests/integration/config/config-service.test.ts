@@ -50,6 +50,19 @@ describe('ConfigService', () => {
     expect(sources['ai.temperature']).toBeUndefined();
   });
 
+  it('extends default excluded paths with project and global values', async () => {
+    const service = new ConfigService({ globalDir });
+    await service.write('global', { privacy: { excludedPaths: ['global/**'] } });
+    await writeProjectConfig({ privacy: { excludedPaths: ['generated/**'] } });
+
+    const { configuration, sources } = await service.getResolved(repoRoot);
+
+    expect(configuration.privacy?.excludedPaths).toEqual(
+      expect.arrayContaining(['**/.env*', 'global/**', 'generated/**']),
+    );
+    expect(sources['privacy.excludedPaths']).toBe('project');
+  });
+
   it('gives constructor overrides the highest precedence', async () => {
     const service = new ConfigService({
       globalDir,

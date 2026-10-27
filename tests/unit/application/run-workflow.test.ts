@@ -63,6 +63,7 @@ class FakeRepository implements RepositoryAdapter {
   hasUnmerged = false;
   inspectCallCount = 0;
   finalBranch: string | null = null;
+  verifySnapshot: RepositorySnapshot | null = null;
   capabilities: RepositoryCapabilities = {
     canCreateBranch: true,
     canCheckoutBranch: true,
@@ -143,7 +144,7 @@ class FakeRepository implements RepositoryAdapter {
 
   async verify(): Promise<RepositorySnapshot> {
     this.verifyCalls += 1;
-    return snapshot({ changes: [] });
+    return this.verifySnapshot ?? snapshot({ changes: [] });
   }
 }
 
@@ -286,6 +287,96 @@ describe('RunWorkflowUseCase', () => {
 
     await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(PlanValidationError);
     expect(repository.commits).toEqual([]);
+  });
+
+  it('does not send or commit excluded paths', async () => {
+    const repository = new FakeRepository();
+    const included = {
+      path: 'a.ts',
+      status: 'modified' as const,
+      stagingState: 'unstaged' as const,
+    };
+    const excluded = {
+      path: '.env.local',
+      status: 'added' as const,
+      stagingState: 'untracked' as const,
+    };
+    repository.snapshots = [
+      snapshot({ changes: [included, excluded] }),
+      snapshot({ changes: [included, excluded] }),
+      snapshot({ changes: [included, excluded] }),
+    ];
+    repository.changeContents = [
+      {
+        ...included,
+        stagedDiff: '',
+        unstagedDiff: '+value\n',
+        addedContent: '',
+        truncated: false,
+        contentOmitted: false,
+      },
+      {
+        ...excluded,
+        stagedDiff: '',
+        unstagedDiff: '',
+        addedContent: '',
+        truncated: false,
+        contentOmitted: true,
+        contentExcluded: true,
+      },
+    ];
+    repository.verifySnapshot = snapshot({
+      changes: [excluded],
+    });
+    const { useCase, planner } = createUseCase(repository);
+
+    const result = await useCase.execute({ cwd: '/repo' });
+
+    expect(planner.plan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: [included],
+        repositorySnapshot: expect.objectContaining({ changes: [included] }),
+      }),
+    );
+    expect(repository.commits).toEqual(['feat: change a']);
+    expect(result.status).toBe('completed');
+  });
+
+  it('returns no-changes when every changed path is excluded', async () => {
+    const excluded = {
+      path: '.env.local',
+      status: 'added' as const,
+      stagingState: 'untracked' as const,
+    };
+    const repository = new FakeRepository([snapshot({ changes: [excluded] })]);
+    repository.changeContents = [
+      {
+        ...excluded,
+        stagedDiff: '',
+        unstagedDiff: '',
+        addedContent: '',
+        truncated: false,
+        contentOmitted: true,
+        contentExcluded: true,
+      },
+    ];
+    const { useCase, planner } = createUseCase(repository);
+
+    const result = await useCase.execute({ cwd: '/repo' });
+
+    expect(result.status).toBe('no-changes');
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(repository.commits).toEqual([]);
+  });
+
+  it('still fails verification when a non-excluded change remains', async () => {
+    const repository = new FakeRepository();
+    repository.verifySnapshot = snapshot({
+      changes: [{ path: 'leftover.ts', status: 'modified', stagingState: 'unstaged' }],
+    });
+    const { useCase } = createUseCase(repository);
+
+    await expect(useCase.execute({ cwd: '/repo' })).rejects.toBeInstanceOf(VerificationError);
   });
 
   it('passes repository capabilities to the planner', async () => {

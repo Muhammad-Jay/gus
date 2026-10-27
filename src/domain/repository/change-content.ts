@@ -10,4 +10,5 @@ export interface ChangeContent {
   addedContent: string;
   truncated: boolean;
   contentOmitted: boolean;
+  contentExcluded?: boolean;
 }

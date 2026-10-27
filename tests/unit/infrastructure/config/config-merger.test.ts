@@ -10,6 +10,21 @@ describe('mergeConfigurations', () => {
     expect(result.ai?.provider).toBe('openai');
   });
 
+  it('should extend excluded paths instead of replacing defaults', () => {
+    const result = mergeConfigurations(
+      { privacy: { excludedPaths: ['**/.env*', '**/*.key'] } },
+      { privacy: { excludedPaths: ['generated/**', '**/.env*'] } },
+      { privacy: { excludedPaths: ['tmp/**'] } },
+    );
+
+    expect(result.privacy?.excludedPaths).toEqual([
+      '**/.env*',
+      '**/*.key',
+      'generated/**',
+      'tmp/**',
+    ]);
+  });
+
   it('should override with later configs', () => {
     const first = { workflow: { autoCommit: 'ask' as const } };
     const second = { workflow: { autoCommit: 'allow' as const } };

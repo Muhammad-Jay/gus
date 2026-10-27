@@ -9,6 +9,7 @@ import {
   VerificationError,
 } from '../../domain/errors/domain-errors.js';
 import { PolicyEvaluator } from '../../domain/policy/policy-evaluator.js';
+import { isPathExcluded } from '../../domain/repository/path-exclusions.js';
 import type { RepositorySnapshot } from '../../domain/repository/repository-snapshot.js';
 import { hasRepositoryStateChanged } from '../../domain/repository/snapshot-comparison.js';
 import type { WorkflowDecision } from '../../domain/workflow/workflow-decision.js';
@@ -111,8 +112,28 @@ export class RunWorkflowUseCase {
 
     progress.emit({ type: 'repository.collecting' });
     const changeContents = await repository.getChangeContents(snapshot.changes);
+    const excludedPathsSeen = new Set(
+      changeContents
+        .filter((content) => content.contentExcluded === true)
+        .map((content) => content.path),
+    );
+    const includedChanges = snapshot.changes.filter(
+      (change) => !excludedPathsSeen.has(change.path),
+    );
+
+    if (excludedPathsSeen.size > 0) {
+      progress.emit({
+        type: 'privacy.warning',
+        message: `Skipped ${excludedPathsSeen.size} excluded path(s); their content will not be sent to the AI provider and they will not be committed: ${[...excludedPathsSeen].join(', ')}`,
+      });
+    }
+
+    if (includedChanges.length === 0) {
+      return { status: 'no-changes', snapshot };
+    }
+
     const omittedPaths = changeContents
-      .filter((content) => content.contentOmitted)
+      .filter((content) => content.contentOmitted && content.contentExcluded !== true)
       .map((content) => content.path);
     if (omittedPaths.length > 0) {
       throw new InsufficientContextError(
@@ -120,6 +141,8 @@ export class RunWorkflowUseCase {
         omittedPaths,
       );
     }
+
+    const planningSnapshot: RepositorySnapshot = { ...snapshot, changes: includedChanges };
 
     try {
       const preStaged = await repository.getStagedPaths();
@@ -158,8 +181,8 @@ export class RunWorkflowUseCase {
     progress.emit({ type: 'ai.planning' });
     const resolved = plannerFactory.create(configuration);
     const plan = await resolved.planner.plan({
-      repositorySnapshot: snapshot,
-      changes: snapshot.changes,
+      repositorySnapshot: planningSnapshot,
+      changes: includedChanges,
       changeContents,
       instructions: instructions.combined,
       ...(template !== null ? { template } : {}),
@@ -175,7 +198,12 @@ export class RunWorkflowUseCase {
     });
 
     progress.emit({ type: 'plan.validating' });
-    const validation = new WorkflowValidator().validate(plan, snapshot, template, capabilities);
+    const validation = new WorkflowValidator().validate(
+      plan,
+      planningSnapshot,
+      template,
+      capabilities,
+    );
     if (!validation.valid) {
       throw new PlanValidationError(
         `The AI workflow plan is not safe to execute: ${validation.errors.join('; ')}`,
@@ -237,8 +265,12 @@ export class RunWorkflowUseCase {
     progress.emit({ type: 'repository.verifying' });
     const verification = await repository.verify();
 
-    if (verification.changes.length > 0) {
-      const remaining = verification.changes.map((change) => change.path).join(', ');
+    const remainingChanges = verification.changes.filter(
+      (change) =>
+        !excludedPathsSeen.has(change.path) && !isPathExcluded(change.path, excludedPaths),
+    );
+    if (remainingChanges.length > 0) {
+      const remaining = remainingChanges.map((change) => change.path).join(', ');
       throw new VerificationError(
         `The workflow finished but the repository is not clean. Remaining changes: ${remaining}`,
       );

@@ -125,6 +125,40 @@ describe('ChangeContentCollector', () => {
     expect(contents[0].unstagedDiff).toBe('');
   });
 
+  it('marks default sensitive paths as excluded without reading their content', async () => {
+    const git = new FakeGit(createResponder());
+    const collector = new ChangeContentCollector(git);
+
+    const contents = await collector.collect(repoRoot, [
+      change({ path: '.env.local', status: 'added', stagingState: 'untracked' }),
+      change({ path: 'config/secrets/token.txt', status: 'added', stagingState: 'untracked' }),
+      change({ path: 'keys/id_rsa', status: 'added', stagingState: 'untracked' }),
+      change({ path: 'src/app.ts' }),
+    ]);
+
+    expect(contents.filter((content) => content.contentExcluded === true)).toHaveLength(3);
+    expect(contents[3].contentExcluded).toBeUndefined();
+    expect(git.calls.some((args) => isStagedDiff(args) && pathOf(args) === '.env.local')).toBe(
+      false,
+    );
+    expect(git.calls.some((args) => isUnstagedDiff(args) && pathOf(args) === '.env.local')).toBe(
+      false,
+    );
+  });
+
+  it('supports custom exclusion patterns', async () => {
+    const git = new FakeGit(createResponder());
+    const collector = new ChangeContentCollector(git, ['**/*.generated.ts']);
+
+    const contents = await collector.collect(repoRoot, [
+      change({ path: 'src/schema.generated.ts' }),
+      change({ path: 'src/schema.ts' }),
+    ]);
+
+    expect(contents[0].contentExcluded).toBe(true);
+    expect(contents[1].contentExcluded).toBeUndefined();
+  });
+
   it('includes the old path in the staged diff command of a rename', async () => {
     const git = new FakeGit(createResponder());
     const collector = new ChangeContentCollector(git);

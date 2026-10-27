@@ -58,7 +58,6 @@ export async function executeRun(options: RunOptions): Promise<void> {
   const location = await tempRepository.detect(process.cwd());
   const configuration = await configService.getMerged(location?.rootPath);
   const liveUpdates = configuration.ui?.liveUpdates !== false;
-  const excludedPaths = configuration.privacy?.excludedPaths ?? [];
 
   const useCase = new RunWorkflowUseCase({
     createRepository: (paths) => createRepository(paths),

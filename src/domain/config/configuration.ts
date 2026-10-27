@@ -42,7 +42,7 @@ export type ConfigurationPatch = {
   privacy?: Partial<NonNullable<Configuration['privacy']>>;
 };
 
-export type ConfigValueKind = 'string' | 'number' | 'boolean' | 'enum';
+export type ConfigValueKind = 'string' | 'string-list' | 'number' | 'boolean' | 'enum';
 
 export interface ConfigKeyDefinition {
   section: ConfigurationSection;
@@ -90,7 +90,7 @@ export const CONFIG_KEYS = {
     kind: 'enum',
     values: CONFIG_COLOR_VALUES,
   },
-  'privacy.excludedPaths': { section: 'privacy', field: 'excludedPaths', kind: 'string' },
+  'privacy.excludedPaths': { section: 'privacy', field: 'excludedPaths', kind: 'string-list' },
   'privacy.redactSecrets': { section: 'privacy', field: 'redactSecrets', kind: 'boolean' },
   'privacy.acknowledgeDataUsage': {
     section: 'privacy',
@@ -108,6 +108,18 @@ export interface ResolvedConfiguration {
   sources: Partial<Record<ConfigKey, ConfigValueSource>>;
 }
 
+export const DEFAULT_EXCLUDED_PATHS = [
+  '**/.env*',
+  '**/*.key',
+  '**/*.pem',
+  '**/*.crt',
+  '**/id_rsa*',
+  '**/*.p12',
+  '**/*.pfx',
+  '**/secrets/**',
+  '**/credentials/**',
+];
+
 export const DEFAULT_CONFIGURATION: Configuration = {
   ai: { provider: 'google', model: 'gemini-2.5-flash' },
   workflow: {
@@ -117,17 +129,7 @@ export const DEFAULT_CONFIGURATION: Configuration = {
     splitChanges: 'ask',
   },
   privacy: {
-    excludedPaths: [
-      '.env*',
-      '*.key',
-      '*.pem',
-      '*.crt',
-      'id_rsa*',
-      '*.p12',
-      '*.pfx',
-      'secrets/*',
-      'credentials/*',
-    ],
+    excludedPaths: [...DEFAULT_EXCLUDED_PATHS],
     redactSecrets: true,
     acknowledgeDataUsage: false,
   },
@@ -189,6 +191,9 @@ export function describeConfigKey(key: ConfigKey): string {
   if (definition.kind === 'number') {
     return `a number between ${definition.min ?? '-infinity'} and ${definition.max ?? 'infinity'}`;
   }
+  if (definition.kind === 'string-list') {
+    return 'a comma-separated list or a JSON array of strings';
+  }
 
   return 'a string';
 }
@@ -232,9 +237,50 @@ export function coerceConfigValue(key: ConfigKey, rawValue: string): CoercionRes
     return { ok: true, value };
   }
 
+  if (definition.kind === 'string-list') {
+    const values = parseStringList(rawValue);
+    if (values === null) {
+      return {
+        ok: false,
+        message: `Invalid value "${rawValue}" for "${key}". Allowed values: ${describeConfigKey(key)}.`,
+      };
+    }
+    return { ok: true, value: values };
+  }
+
   if (rawValue.trim() === '') {
     return { ok: false, message: `Value for "${key}" must not be empty.` };
   }
 
   return { ok: true, value: rawValue };
+}
+
+function parseStringList(rawValue: string): string[] | null {
+  const value = rawValue.trim();
+  if (value === '') {
+    return null;
+  }
+
+  if (value.startsWith('[')) {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return null;
+      }
+      const strings = parsed.filter((entry): entry is string => typeof entry === 'string');
+      if (strings.length !== parsed.length) {
+        return null;
+      }
+      const cleaned = strings.map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+      return cleaned.length === strings.length && cleaned.length > 0 ? cleaned : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const entries = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return entries.length > 0 ? entries : null;
 }

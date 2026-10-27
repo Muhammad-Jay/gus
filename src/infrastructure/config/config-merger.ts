@@ -17,11 +17,26 @@ export function mergeConfigurations(...configs: Configuration[]): Configuration 
       result.ui = { ...result.ui, ...config.ui };
     }
     if (config.privacy) {
-      result.privacy = { ...result.privacy, ...config.privacy };
+      result.privacy = mergePrivacy(result.privacy, config.privacy);
     }
   }
 
   return result;
+}
+
+function mergePrivacy(
+  base: Configuration['privacy'],
+  next: NonNullable<Configuration['privacy']>,
+): NonNullable<Configuration['privacy']> {
+  const merged = { ...base, ...next };
+  if (next.excludedPaths !== undefined) {
+    merged.excludedPaths = dedupe([...(base?.excludedPaths ?? []), ...next.excludedPaths]);
+  }
+  return merged;
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 export function mergeConfigurationPatch(

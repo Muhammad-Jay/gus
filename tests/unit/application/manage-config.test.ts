@@ -56,6 +56,36 @@ describe('ManageConfigUseCase', () => {
     expect(temperature.path).toBe(join(repoRoot, '.gus', 'config.json'));
   });
 
+  it('parses privacy excluded paths from comma-separated and JSON list values', async () => {
+    const commaSeparated = await useCase.set('privacy.excludedPaths', 'generated/**, cache/**', {
+      scope: 'project',
+      repoRoot,
+    });
+    const jsonList = await useCase.set('privacy.excludedPaths', '["tmp/**", " *.log "]', {
+      scope: 'project',
+      repoRoot,
+    });
+
+    expect(commaSeparated.value).toEqual(['generated/**', 'cache/**']);
+    expect(jsonList.value).toEqual(['tmp/**', '*.log']);
+
+    const effective = await useCase.get('privacy.excludedPaths', repoRoot);
+    expect(effective.source).toBe('project');
+    expect(effective.value).toEqual(expect.arrayContaining(['tmp/**', '*.log', '**/.env*']));
+  });
+
+  it('rejects invalid privacy excluded path lists', async () => {
+    await expect(
+      useCase.set('privacy.excludedPaths', '[]', { scope: 'global' }),
+    ).rejects.toBeInstanceOf(InvalidConfigurationError);
+    await expect(
+      useCase.set('privacy.excludedPaths', '[1, 2]', { scope: 'global' }),
+    ).rejects.toBeInstanceOf(InvalidConfigurationError);
+    await expect(
+      useCase.set('privacy.excludedPaths', '   ', { scope: 'global' }),
+    ).rejects.toBeInstanceOf(InvalidConfigurationError);
+  });
+
   it('rejects values outside the allowed set', async () => {
     await expect(
       useCase.set('workflow.autoCommit', 'maybe', { scope: 'global' }),

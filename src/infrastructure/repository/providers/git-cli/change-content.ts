@@ -8,9 +8,10 @@ import {
   readlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import micromatch from 'micromatch';
+import { DEFAULT_EXCLUDED_PATHS } from '../../../../domain/config/configuration.js';
 import { OperationFailedError } from '../../../../domain/errors/domain-errors.js';
 import type { ChangeContent } from '../../../../domain/repository/change-content.js';
+import { isPathExcluded } from '../../../../domain/repository/path-exclusions.js';
 import type { RepositoryChange } from '../../../../domain/repository/repository-change.js';
 import { describeProcessFailure } from '../../../process/process-runner.js';
 import type { GitCommandExecutor } from './git-metadata.js';
@@ -22,17 +23,7 @@ export const MAX_TOTAL_BYTES = 256 * 1024;
 
 const MARKER_RESERVE_BYTES = 128;
 
-export const DEFAULT_EXCLUDED_PATHS = [
-  '.env*',
-  '*.key',
-  '*.pem',
-  '*.crt',
-  'id_rsa*',
-  '*.p12',
-  '*.pfx',
-  'secrets/*',
-  'credentials/*',
-];
+export { DEFAULT_EXCLUDED_PATHS };
 
 interface FileContent {
   text: string;
@@ -136,7 +127,7 @@ export class ChangeContentCollector {
   }
 
   private isExcluded(path: string): boolean {
-    return micromatch.isMatch(path, this.excludedPaths);
+    return isPathExcluded(path, this.excludedPaths);
   }
 
   private excludedContent(change: RepositoryChange): ChangeContent {
@@ -150,6 +141,7 @@ export class ChangeContentCollector {
       addedContent: '',
       truncated: false,
       contentOmitted: true,
+      contentExcluded: true,
     };
   }
 
